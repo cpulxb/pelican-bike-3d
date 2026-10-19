@@ -20,11 +20,26 @@ export class AudioEngine {
     this.nodes = {};
     this._lastTick = 0;
     this._lastGull = 0;
+    this._nextGull = 8;      // 下一声海鸥的间隔（预先掷好，不能每帧重掷）
+    this.volume = 0.8;
+  }
+
+  /** 主音量（0..1），与开关独立 */
+  get _masterLevel() { return this.enabled ? 0.55 * (this.volume ?? 1) / 0.8 : 0; }
+
+  setVolume(v) {
+    this.volume = Math.max(0, Math.min(1, v));
+    if (this.ready) this.master.gain.setTargetAtTime(this._masterLevel, this.ctx.currentTime, 0.15);
+  }
+
+  /** 浏览器可能把 AudioContext 挂起（自动播放策略 / 切后台），任何用户手势都尝试恢复 */
+  resume() {
+    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
   }
 
   /** 必须在用户手势里调用 */
   init() {
-    if (this.ctx) return;
+    if (this.ctx) { this.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) { this.enabled = false; return; }
 
@@ -133,7 +148,8 @@ export class AudioEngine {
     this.ready = true;
 
     // 淡入，避免开局「啪」的一声
-    master.gain.setTargetAtTime(this.enabled ? 0.55 : 0.0, ctx.currentTime, 0.6);
+    master.gain.setTargetAtTime(this._masterLevel, ctx.currentTime, 0.6);
+    this.resume();
   }
 
   _makeNoiseBuffer(seconds) {
@@ -317,9 +333,11 @@ export class AudioEngine {
     }
 
     // 海鸥：随机间隔
+    // 原来写成 `> 6 + Math.random() * 12`：每帧重掷随机数，实际间隔几乎总是 ~6 秒。
     this._lastGull += dt;
-    if (this._lastGull > 6 + Math.random() * 12) {
+    if (this._lastGull > this._nextGull) {
       this._lastGull = 0;
+      this._nextGull = 6 + Math.random() * 12;
       this.gullCry();
     }
   }
@@ -327,7 +345,7 @@ export class AudioEngine {
   setEnabled(on) {
     this.enabled = on;
     if (!this.ready) return;
-    this.master.gain.setTargetAtTime(on ? 0.55 : 0.0, this.ctx.currentTime, 0.35);
+    this.master.gain.setTargetAtTime(this._masterLevel, this.ctx.currentTime, 0.35);
   }
 
   toggle() {
@@ -357,4 +375,79 @@ export class AudioEngine {
     src.connect(bp).connect(g).connect(this.master);
     src.start(t);
   }
+
+  /* ================================================================ *
+   * 游戏音效（全部合成）
+   * ================================================================ */
+
+  /** 一个带包络的音符：type 波形，f 频率，dur 时长，amp 音量，at 延迟 */
+  _note(f, dur = 0.3, amp = 0.08, type = 'sine', at = 0, glide = 0) {
+    if (!this.ready || !this.enabled) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime + at;
+    const o = ctx.createOscillator();
+    o.type = type;
+    o.frequency.setValueAtTime(f, t);
+    if (glide) o.frequency.exponentialRampToValueAtTime(Math.max(20, f * glide), t + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(amp, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(this.master);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+  }
+
+  /** 噪声爆发（水花 / 落地 / 风） */
+  _noise(dur, freq, q, amp, at = 0, type = 'bandpass', sweep = 0) {
+    if (!this.ready || !this.enabled) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime + at;
+    if (!this._noiseBuf) this._noiseBuf = this._makeNoiseBuffer(1.5);
+    const src = ctx.createBufferSource();
+    src.buffer = this._noiseBuf;
+    src.playbackRate.value = 0.8 + Math.random() * 0.4;
+    const f = ctx.createBiquadFilter();
+    f.type = type; f.frequency.setValueAtTime(freq, t); f.Q.value = q;
+    if (sweep) f.frequency.exponentialRampToValueAtTime(freq * sweep, t + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(amp, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(this.master);
+    src.start(t, Math.random() * 0.5);
+    src.stop(t + dur + 0.05);
+  }
+
+  /** 接到鱼：五声音阶的拨弦，鱼越多音越高 */
+  catchFish(n = 1) {
+    const scale = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5];
+    const f = scale[Math.min(scale.length - 1, Math.max(0, n - 1))];
+    this._note(f, 0.28, 0.09, 'triangle');
+    this._note(f * 2, 0.18, 0.035, 'sine', 0.01);
+    this._note(f * 1.5, 0.22, 0.05, 'triangle', 0.07);
+    this._noise(0.12, 900, 0.8, 0.05);
+  }
+
+  /** 送达：大三和弦琶音 */
+  deliver(n = 1) {
+    const base = 392;
+    [1, 1.26, 1.5, 2, 2.52].slice(0, 2 + Math.min(3, n)).forEach((r, i) => this._note(base * r, 0.5, 0.07, 'triangle', i * 0.07));
+    this._note(base * 4, 0.6, 0.025, 'sine', 0.3);
+  }
+
+  splash(s = 1) { this._noise(0.35, 1400, 0.7, 0.05 * s, 0, 'bandpass', 0.35); }
+
+  checkpoint(i = 0) { this._note(880, 0.16, 0.07, 'square', 0, 1.0); this._note(1318.5, 0.25, 0.06, 'triangle', 0.08); }
+  lap() { [660, 880, 1100].forEach((f, i) => this._note(f, 0.3, 0.07, 'triangle', i * 0.1)); }
+  fanfare() { [523, 659, 784, 1046, 784, 1046].forEach((f, i) => this._note(f, i === 5 ? 0.9 : 0.22, 0.07, 'triangle', i * 0.12)); }
+  beep(kind = 0, amp = 1) { this._note(kind ? 1046.5 : 659.25, kind ? 0.5 : 0.18, 0.08 * amp, 'square'); }
+  trick(combo = 1) { const f = 600 * Math.pow(1.06, Math.min(12, combo)); this._note(f, 0.2, 0.06, 'triangle'); this._note(f * 1.5, 0.3, 0.05, 'triangle', 0.06); }
+  cash() { [784, 988, 1175, 1568].forEach((f, i) => this._note(f, 0.18, 0.05, 'square', i * 0.05)); }
+  crash() { this._noise(0.5, 300, 0.6, 0.18, 0, 'lowpass', 0.3); this._note(110, 0.4, 0.12, 'sine', 0, 0.5); this._noise(0.25, 2400, 3, 0.04, 0.05); }
+  whoosh(s = 1) { this._noise(0.55, 500, 1.2, 0.06 * s, 0, 'bandpass', 3); }
+  firefly() { this._note(1760, 0.25, 0.035, 'sine'); this._note(2637, 0.3, 0.025, 'sine', 0.05); }
+  mission() { [784, 1046.5, 1318.5, 1568].forEach((f, i) => this._note(f, 0.35, 0.06, 'sine', i * 0.08)); }
+  denied() { this._note(220, 0.18, 0.07, 'square', 0, 0.8); this._note(196, 0.22, 0.06, 'square', 0.1, 0.8); }
+  uiClick() { this._note(1200, 0.05, 0.03, 'square'); }
 }

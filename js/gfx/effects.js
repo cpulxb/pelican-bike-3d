@@ -234,13 +234,17 @@ export class Effects {
     renderer.toneMappingExposure = 1.0;
 
     this._sunNDC = new THREE.Vector3();
+    /** 色差的用户设定值（调参面板写这里；render() 只在它基础上随速度衰减） */
+    this.aberrationBase = 1.0;
     this._size = size;
   }
 
   setSize(width, height) {
     this._size.set(width, height);
+    // composer.setSize 会按像素比把所有 pass（包括辉光）一起改尺寸。
+    // 原来这里又单独 bloom.setSize(width, height)：用的是 CSS 像素，
+    // 在 2x 屏上把辉光缓冲重新缩回了一半分辨率，与其它 pass 不一致。
     this.composer.setSize(width, height);
-    this.bloom.setSize(width, height);
   }
 
   /** 太阳在屏幕上的位置 —— 用来做镜头光晕与辉光对齐 */
@@ -283,11 +287,13 @@ export class Effects {
     const sunY = this.env.u.uSunDir.value.y;
     const bloomBoost = 1 + THREE.MathUtils.clamp(1 - Math.abs(sunY) * 2.4, 0, 1) * 0.55;
     this.bloom.strength = this.bloomBase * bloomBoost;
+    // 强度为 0 时整条辉光链（5 级 mip 模糊）都可以跳过 —— 低画质省下的大头
+    this.bloom.enabled = this.bloomBase > 0.001;
 
     this.grade.uniforms.uTime.value = s.time ?? 0;
     this.grade.uniforms.uFade.value = s.fade ?? 0;
     // 高速时降低色差，避免晕
-    this.grade.uniforms.uAberration.value = 1.0 - speedNorm * 0.45;
+    this.grade.uniforms.uAberration.value = this.aberrationBase * (1.0 - speedNorm * 0.45);
 
     this._projectSun();
     this.composer.render(dt);

@@ -82,7 +82,13 @@ export class Environment {
       uCloudSharp: { value: 0.16 },
       uStars: { value: 0.0 },
       uQuality: { value: quality === 'low' ? 0 : quality === 'medium' ? 1 : 2 },
+      // 车头灯：自研地形着色器不吃 three 的 SpotLight，这里给它一束同参数的「假」聚光
+      uHeadPos: { value: new THREE.Vector3() },
+      uHeadDir: { value: new THREE.Vector3(0, -0.2, 1) },
+      uHeadI: { value: 0 },
     };
+    /** 额外的风力（游戏里的阵风），叠加在随车速变化的基础风上 */
+    this.windBoost = 0;
 
     this.terrainMaterial = null;
     this.chunks = [];
@@ -179,6 +185,9 @@ export class Environment {
         uTime: this.u.uTime,
         uDetailScale: { value: 1.0 },
         uChunkFade: { value: 1.0 },
+        uHeadPos: this.u.uHeadPos,
+        uHeadDir: this.u.uHeadDir,
+        uHeadI: this.u.uHeadI,
       },
       vertexShader: S.TERRAIN_VERT,
       fragmentShader: S.TERRAIN_FRAG,
@@ -747,7 +756,9 @@ export class Environment {
       phase[i] = rnd() * 6.28;
       speed[i] = 5.5 + rnd() * 3.5;
     }
-    geo.setAttribute('position', new THREE.InstancedBufferAttribute(pos, 3));
+    // 注意：实例偏移不能叫 'position' —— 那会覆盖掉上面的鸟身顶点，
+    // 每只鸟的所有顶点都落在同一点上，三角形全部退化，鸟群整片消失。
+    geo.setAttribute('aOffset', new THREE.InstancedBufferAttribute(pos, 3));
     geo.setAttribute('aFlapPhase', new THREE.InstancedBufferAttribute(phase, 1));
     geo.setAttribute('aFlapSpeed', new THREE.InstancedBufferAttribute(speed, 1));
     geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 40, 0), 400);
@@ -801,7 +812,7 @@ export class Environment {
     u.uPlayerPos.value.copy(playerPos);
 
     // 风随骑行速度增强（迎面风）
-    u.uWindStrength.value = 0.38 + Math.min(1, speed / 22) * 0.85;
+    u.uWindStrength.value = 0.38 + Math.min(1, speed / 22) * 0.85 + this.windBoost;
 
     // 天空球永远包住相机
     this.sky.position.copy(camera.position);
@@ -827,7 +838,7 @@ export class Environment {
   }
 
   _updateLOD(camPos) {
-    const maxLod = this.quality === 'low' ? 2 : 2;
+    const maxLod = 2;
     for (const c of this.chunks) {
       const d = Math.hypot(camPos.x - c.cx, camPos.z - c.cz);
       let lod;

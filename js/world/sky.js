@@ -37,6 +37,10 @@ const KEYFRAMES = [
 
 const _c1 = new THREE.Color();
 const _c2 = new THREE.Color();
+// 每帧都要算一次太阳方向：临时向量放在模块级，避免每帧 new 三个 Vector3
+const _dir = new THREE.Vector3();
+const _AX = new THREE.Vector3(1, 0, 0);
+const _AY = new THREE.Vector3(0, 1, 0);
 
 function lerpHex(a, b, k, out) {
   _c1.setHex(a, THREE.SRGBColorSpace);
@@ -107,14 +111,14 @@ export class SkyDirector {
     const cosE = Math.cos(Math.asin(THREE.MathUtils.clamp(elev, -1, 1)));
 
     // 基础方向（+Z 为日出方向，逆时针绕 Y 旋转）
-    const dir = new THREE.Vector3(
+    const dir = _dir.set(
       Math.sin(azim) * cosE,
       elev,
       Math.cos(azim) * cosE
     );
     // 轨道倾斜：太阳不垂直升降，略偏，让阴影更长更斜
-    dir.applyAxisAngle(new THREE.Vector3(1, 0, 0), this.orbitTilt * 0.5);
-    dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.orbitYaw);
+    dir.applyAxisAngle(_AX, this.orbitTilt * 0.5);
+    dir.applyAxisAngle(_AY, this.orbitYaw);
     dir.normalize();
     s.sunDir.copy(dir);
 

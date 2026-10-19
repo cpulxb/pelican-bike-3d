@@ -285,6 +285,9 @@ export const TERRAIN_FRAG = /* glsl */`
   uniform float uTime;
   uniform float uDetailScale;
   uniform float uChunkFade;      // 分块生成的淡入（0→1）
+  uniform vec3  uHeadPos;        // 车头灯位置 / 方向 / 强度
+  uniform vec3  uHeadDir;
+  uniform float uHeadI;
 
   varying vec3 vWorldPos;
   varying vec3 vNormalW;
@@ -379,6 +382,17 @@ export const TERRAIN_FRAG = /* glsl */`
     vec3 H = normalize(uSunDir + V);
     float spec = pow(max(dot(N, H), 0.0), 42.0) * 0.16 * (1.0 - grass) * sandMix;
     color += uSunColor * spec;
+
+    // ---------- 5b. 车头灯：软边聚光 + 距离衰减 ----------
+    if (uHeadI > 0.001) {
+      vec3 Lh = uHeadPos - vWorldPos;
+      float dh = length(Lh);
+      Lh /= max(dh, 1e-3);
+      float cone = smoothstep(0.86, 0.97, dot(-Lh, uHeadDir));
+      // 近处压一压（d²/(d²+6)），否则车轮底下会被照成一块过曝的白斑
+      float att = uHeadI * (dh * dh / (dh * dh + 6.0)) / (1.0 + dh * dh * 0.03);
+      color += albedo * vec3(1.0, 0.86, 0.62) * cone * att * max(dot(N, Lh), 0.0);
+    }
 
     // ---------- 6. 雾 + 输出 ----------
     color = applyFog(color, vWorldPos, cameraPosition, uSunDir,
@@ -783,6 +797,7 @@ export const CLOUD_FRAG = /* glsl */`
 export const FLOCK_VERT = /* glsl */`
   precision highp float;
 
+  attribute vec3  aOffset;      // 每只鸟在鸟群里的位置
   attribute float aFlapPhase;
   attribute float aFlapSpeed;
 
@@ -812,7 +827,14 @@ export const FLOCK_VERT = /* glsl */`
     float bend = flap * span * 1.5;
     n = normalize(n + vec3(0.0, bend * 0.55, 0.0));
 
-    vec4 wp = modelMatrix * vec4(pos, 1.0);
+    // 鸟身朝鸟群公转的切向摆正（flockRoot 绕 +Y 正向旋转，切向 = 极角 + 90°；
+    // 模型翼尖后掠，机头朝 +Z）。
+    float heading = atan(aOffset.x, aOffset.z) + 1.5707963;
+    float ch = cos(heading), sh = sin(heading);
+    pos.xz = mat2(ch, -sh, sh, ch) * pos.xz;
+    n.xz = mat2(ch, -sh, sh, ch) * n.xz;
+
+    vec4 wp = modelMatrix * vec4(pos + aOffset, 1.0);
     vWorldPos = wp.xyz;
     vNormal = normalize(mat3(modelMatrix) * n);
 
