@@ -153,6 +153,9 @@ export class Pelican {
       blink: 0,
       blinkTimer: 2.4,
       pouchJiggle: 0,
+      pouchFill: 0,        // 喉囊装载量（平滑后的 0..1）
+      pouchTarget: 0,
+      snap: 0,             // 「啪」地合嘴：接到鱼 / 送鱼时触发
       wingFlutter: 0,
       tailSway: 0,
       footL: new THREE.Vector3(),
@@ -541,6 +544,9 @@ export class Pelican {
     const fishMat = new THREE.MeshStandardMaterial({ color: 0xc9903f, roughness: 0.5 });
     const pouchFish = new THREE.Mesh(mergeGeometries(fishGeos), fishMat);
     this.pouch.add(pouchFish);
+    this.pouchFish = pouchFish;
+    this.materials.pouchFish = fishMat;           // 纳入 dispose 清单
+    this.geometries.push(pouchFish.geometry);
     fishGeos.forEach((g) => g.dispose());
   }
 
@@ -1112,7 +1118,23 @@ export class Pelican {
     // 高速时喙微微张开喘气，喉囊随之晃动
     const gape = THREE.MathUtils.clamp(speed / 12, 0, 1) * 0.09
       + Math.max(0, Math.sin(t * 0.7)) * 0.03 * (1 - neckStretch * 0.6);
-    this.beakLower.rotation.x = gape;
+    // 合嘴动画：先张大（0→0.35 rad），再猛地合上
+    A.snap = Math.max(0, A.snap - dt * 3.2);
+    const snapOpen = A.snap > 0.5 ? (1 - A.snap) * 2 : A.snap * 2;
+    this.beakLower.rotation.x = gape + snapOpen * 0.38;
+
+    // 喉囊鼓起：鱼越多越往下坠、越宽。用 Group 缩放实现，不碰几何。
+    // 弹簧式逼近 —— 接到鱼时会「咕咚」一下过冲再回落，看得出分量。
+    const k = 60, damp = 9;
+    A.pouchVel = (A.pouchVel || 0) + ((A.pouchTarget - A.pouchFill) * k - (A.pouchVel || 0) * damp) * Math.min(dt, 0.05);
+    A.pouchFill += A.pouchVel * Math.min(dt, 0.05);
+    const f = Math.max(0, A.pouchFill);
+    this.pouch.scale.set(1 + f * 0.75, 1 + f * 1.55, 1 + f * 0.06);
+    this.pouch.position.y = -f * 0.012;
+    if (this.pouchFish) {
+      this.pouchFish.visible = f > 0.05 || (A.pouchTarget === 0 && A.idleFish !== false);
+      this.pouchFish.scale.setScalar(0.8 + f * 0.5);
+    }
 
     // 喉囊抖动：用正弦驱动几何的顶点位移 —— 每帧只改 y 分量，代价很低
     this._jigglePouch(A.pouchJiggle, speed, bump);
@@ -1310,6 +1332,15 @@ export class Pelican {
     eye.group.updateWorldMatrix(true, false);
     return out.copy(eye.group.matrixWorld);
   }
+
+  /** 喉囊装载量 0..1（由游戏逻辑每帧设置） */
+  setPouchFill(f, idleFish = true) {
+    this.anim.pouchTarget = THREE.MathUtils.clamp(f, 0, 1);
+    this.anim.idleFish = idleFish;   // 观光模式保留原来喉囊里隐约的鱼影；游戏里空囊就是空的
+  }
+
+  /** 合嘴一下（接到鱼 / 送鱼） */
+  snap() { this.anim.snap = 1; }
 
   /** 把鹈鹕放在鞍座上（世界坐标） */
   placeAt(worldPos, yaw, pitch, roll) {
