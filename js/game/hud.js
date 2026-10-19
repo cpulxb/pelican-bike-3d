@@ -257,6 +257,8 @@ export class GameUI {
         <label class="field"><span>音量</span><input type="range" min="0" max="1" step="0.05" value="${settings.volume}" data-setting="volume" /></label>
         <label class="field"><span>阵风（会让车头轻微偏转）</span><input type="checkbox" ${settings.wind ? 'checked' : ''} data-setting="wind" /></label>
         <label class="field"><span>画面震动</span><input type="checkbox" ${settings.shake ? 'checked' : ''} data-setting="shake" /></label>
+        <label class="field"><span>物理真实度${this.game.ctx.physicsReady ? '' : '（物理引擎未加载）'}</span>
+          <select data-setting="physics" ${this.game.ctx.physicsReady ? '' : 'disabled'}><option value="real" ${sel('real', settings.physics)}>真实（重力 9.81、真实抓地与水阻）</option><option value="arcade" ${sel('arcade', settings.physics)}>街机（更重的落地、更稳的抓地）</option></select></label>
         <label class="field"><span>触屏按键</span>
           <select data-setting="touch"><option value="auto" ${sel('auto', settings.touch)}>自动</option><option value="on" ${sel('on', settings.touch)}>始终显示</option><option value="off" ${sel('off', settings.touch)}>隐藏</option></select></label>
         <label class="field"><span>画质</span>
@@ -273,11 +275,13 @@ export class GameUI {
       ['W / ↑', '加速（空中：压低车头）'], ['S / ↓', '刹车（空中：抬起车头）'], ['A D / ← →', '转向（空中：转体）'],
       ['Space', '起跳'], ['B', '摇车铃（驱赶海鸥 / 空中加分）'], ['P', '拍照（完成任务、存进相册）'],
       ['R', '回到起点 / 上一个检查点'], ['1–4', '切换镜头'], ['Esc', '暂停 / 返回'], ['M', '声音开关'], ['H', '隐藏界面'],
+      ['F3', '显示碰撞体线框（调试）'],
     ].map(([k, v]) => `<div class="help__row"><kbd>${k}</kbd><span>${v}</span></div>`).join('');
     return `
       <h2 class="menu__h">操作</h2>
       <div class="help">${rows}</div>
       <p class="menu__sub">手机：左侧摇杆转向与加速，右侧按键起跳 / 摇铃 / 拍照 / 刹车。拖动画面可以环视。</p>
+      <p class="menu__sub">物理：石头、浮木和你都有真实的质量与动量 —— 小石子会被踢飞，大礁石会让你摔车；水越深越难骑、越容易打滑。设置里可切「真实 / 街机」。</p>
       <div class="menu__actions"><button class="ghost-btn" data-action="back" data-autofocus>返回</button></div>`;
   }
 

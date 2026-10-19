@@ -22,6 +22,8 @@
  * 公共 GLSL 片段
  * ================================================================== */
 
+import { waveGLSL } from '../physics/waves.js';
+
 export const GLSL_COMMON = /* glsl */`
   #define PI  3.141592653589793
   #define TAU 6.283185307179586
@@ -530,10 +532,6 @@ export const WATER_VERT = /* glsl */`
 
   uniform float uTime;
   uniform float uWaveScale;
-  uniform vec2  uWaveDir0;
-  uniform vec2  uWaveDir1;
-  uniform vec2  uWaveDir2;
-  uniform vec2  uWaveDir3;
 
   varying vec3 vWorldPos;
   varying vec3 vNormal;
@@ -564,10 +562,8 @@ export const WATER_VERT = /* glsl */`
 
     vec3 disp = vec3(0.0);
     float s = uWaveScale;
-    disp += gerstner(p, uWaveDir0, 0.14 * s, 22.0, 1.00, uTime, tangent, binormal);
-    disp += gerstner(p, uWaveDir1, 0.11 * s, 12.5, 1.18, uTime, tangent, binormal);
-    disp += gerstner(p, uWaveDir2, 0.08 * s,  6.4, 1.42, uTime, tangent, binormal);
-    disp += gerstner(p, uWaveDir3, 0.05 * s,  3.1, 1.75, uTime, tangent, binormal);
+    // 波参数只在 js/physics/waves.js 里写一份：物理的水面高度与这里逐位一致
+    ${waveGLSL()}
 
     wp.xyz += disp;
 

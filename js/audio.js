@@ -436,6 +436,16 @@ export class AudioEngine {
     this._note(base * 4, 0.6, 0.025, 'sine', 0.3);
   }
 
+  /** 车撞到东西：低频闷响（撞石子时叠一声清脆的「咔」） */
+  thud(s = 1, stone = false) {
+    this._noise(0.18, 180, 0.8, 0.12 * s, 0, 'lowpass', 0.5);
+    this._note(70 + 40 * s, 0.16, 0.08 * s, 'sine', 0, 0.6);
+    if (stone) this.clack(s * 0.8);
+  }
+  /** 石头相碰 / 落地：短促的高频脉冲 */
+  clack(s = 1) { if (s < 0.05) return; this._noise(0.06, 2600 + Math.random() * 1400, 4, 0.06 * s, 0, 'bandpass', 0.6); }
+  /** 重物入水：比 splash 更低更长的「扑通」 */
+  plunge(s = 1) { this._noise(0.6, 520, 0.8, 0.09 * s, 0, 'lowpass', 0.35); this._note(95, 0.25, 0.05 * s, 'sine', 0, 0.55); }
   splash(s = 1) { this._noise(0.35, 1400, 0.7, 0.05 * s, 0, 'bandpass', 0.35); }
 
   checkpoint(i = 0) { this._note(880, 0.16, 0.07, 'square', 0, 1.0); this._note(1318.5, 0.25, 0.06, 'triangle', 0.08); }

@@ -10,7 +10,7 @@
  * 触屏摇杆是模拟量，直接给目标值（同样经过平滑）。
  */
 
-const EVENT_KEYS = ['camera', 'bell', 'photo', 'audio', 'gui', 'hideUI', 'reset', 'jump', 'pause'];
+const EVENT_KEYS = ['camera', 'bell', 'photo', 'audio', 'gui', 'hideUI', 'reset', 'jump', 'pause', 'debug'];
 
 export class Input {
   constructor(canvas, opts = {}) {
@@ -27,7 +27,7 @@ export class Input {
     };
 
     /** 一次性事件：被 consume 后清空 */
-    this.events = { camera: 0, bell: false, photo: false, audio: false, gui: false, hideUI: false, reset: false, jump: false, pause: false };
+    this.events = { camera: 0, bell: false, photo: false, audio: false, gui: false, hideUI: false, reset: false, jump: false, pause: false, debug: false };
     this._out = { ...this.events };
 
     /** 触屏摇杆的模拟量 */
@@ -72,6 +72,8 @@ export class Input {
       if (isTyping(e)) return;
       const k = e.key.toLowerCase();
       if (k === 'escape') { this.events.pause = true; return; }
+      // F3：碰撞体线框（拦下浏览器的「查找」）
+      if (k === 'f3') { e.preventDefault(); if (!e.repeat) this.events.debug = true; return; }
       // 菜单按钮获得焦点时，空格 / 回车交给按钮本身
       const onButton = e.target && e.target.tagName === 'BUTTON';
       if (onButton && (k === ' ' || k === 'enter')) return;

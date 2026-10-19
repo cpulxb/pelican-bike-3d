@@ -141,6 +141,7 @@ export class FishSystem {
     f.dx = Math.sin(a) * travel;
     f.dz = Math.cos(a) * travel;
     f.yaw = a;
+    this.onSplash?.(f.x, f.z, 0.5);
     this.particles.burst({ x: f.x, y: WATER_LEVEL + 0.05, z: f.z, count: 14, speed: 2.2, up: 3.2, spread: 0.8, color: [0.7, 0.9, 1.0], intensity: 1.4, size: 0.12, life: 0.7, sprite: 2, gravity: 9 });
     // 水花声随距离衰减：远处的鱼群不该在耳边扑通
     const d = Math.hypot(f.x - this._px, f.z - this._pz);
@@ -204,6 +205,7 @@ export class FishSystem {
       const u = f.t / f.dur;
       if (u >= 1) {
         f.active = false;
+        this.onSplash?.(f.x + f.dx, f.z + f.dz, 0.4);   // 落回水里：涟漪（物理模块挂上来）
         this.particles.burst({ x: f.x + f.dx, y: WATER_LEVEL + 0.05, z: f.z + f.dz, count: 10, speed: 1.6, up: 2.4, spread: 0.6, color: [0.7, 0.9, 1.0], intensity: 1.2, size: 0.1, sprite: 2, life: 0.6 });
         this.fishMesh.setMatrixAt(i, _m.makeScale(0, 0, 0));
         continue;
