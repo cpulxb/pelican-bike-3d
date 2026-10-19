@@ -403,7 +403,7 @@ async function main() {
     });
     fQ.add(qCtl, '羽毛').onChange((v) => feathers.setVisible(v));
     fQ.add(qCtl, '草').onChange((v) => { env.grass.visible = v; });
-    fQ.add(qCtl, '辉光强度', 0, 1.5, 0.01).onChange((v) => { effects._bloomOverride = v; });
+    fQ.add(qCtl, '辉光强度', 0, 1.5, 0.01).onChange((v) => { effects.bloomBase = v; });
     fQ.add(qCtl, '颗粒', 0, 0.12, 0.001).onChange((v) => { effects.grade.uniforms.uGrain.value = v; });
     fQ.add(qCtl, '暗角', 0, 1.6, 0.01).onChange((v) => { effects.grade.uniforms.uVignette.value = v; });
     fQ.add(qCtl, '色差', 0, 2.5, 0.01).onChange((v) => { effects.grade.uniforms.uAberration.value = v; });
@@ -537,8 +537,7 @@ const _eyeWorld = new THREE.Matrix4();
     const r = Math.hypot(player.pos.x, player.pos.z);
     if (r > PHYS.worldRadius) {
       const over = (r - PHYS.worldRadius) / 60;
-      player.yaw -= Math.sign(Math.sin(player.yaw) * player.pos.x / r + Math.cos(player.yaw) * player.pos.z / r)
-        * 0.0;   // 保留转向，靠下面的速度衰减拉回
+      // 越界后不强行改朝向，靠速度衰减把车拉回；转向仍由玩家（或自动骑行）掌握。
       player.speed *= Math.max(0, 1 - over * 0.9 * dt);
     }
 
