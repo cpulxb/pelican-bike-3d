@@ -1,0 +1,152 @@
+[
+ {
+  "name": "sand",
+  "size": "1024x1024",
+  "prompt": "Seamless tileable texture. Straight-down orthographic top view of fine warm golden tropical beach sand: soft subtle wind ripples, fine grain, a few scattered tiny pale shell fragments and darker mineral grains. Evenly lit with flat diffuse light, no cast shadows, no vignette, no horizon, no objects, uniform density across the whole frame, high-detail photographic material scan."
+ },
+ {
+  "name": "wetsand",
+  "size": "1024x1024",
+  "prompt": "Seamless tileable texture. Straight-down orthographic top view of wet compacted shoreline sand just after a wave retreated: darker warm brown-tan sand, faint shallow rivulet and backwash patterns, tiny bubble holes, a few small shell bits. Flat diffuse lighting, no cast shadows, no vignette, uniform across the frame, high-detail photographic material scan."
+ },
+ {
+  "name": "grass",
+  "size": "1024x1024",
+  "prompt": "Seamless tileable texture. Straight-down orthographic top view of a lush tropical island meadow ground: dense short green grass blades, small clover patches, a few tiny white and yellow wildflowers sparsely scattered, glimpses of dark soil between blades. Natural olive-to-fresh green tones, flat diffuse lighting, no cast shadows, no vignette, uniform density, high-detail photographic material scan."
+ },
+ {
+  "name": "rock",
+  "size": "1024x1024",
+  "prompt": "Seamless tileable texture. Straight-down orthographic view of weathered coastal cliff rock surface: warm grey-brown granite and basalt with cracks, crevices, small pits, faint orange and pale green lichen patches. Flat diffuse lighting, no cast shadows, no vignette, uniform across the frame, high-detail photographic material scan."
+ },
+ {
+  "name": "ripple_h",
+  "size": "1024x1024",
+  "prompt": "Seamless tileable grayscale height map of a calm ocean surface seen straight from above: small wind ripples and capillary waves of several sizes, white = crests, black = troughs, smooth gradients, no foam, no color, no lighting, no reflections, uniform across the frame."
+ },
+ {
+  "name": "foam",
+  "size": "1024x1024",
+  "prompt": "Seamless tileable texture of white lacy sea foam patterns on a pure black background, seen straight from above: thin intricate foam filaments, bubbles and lace-like networks with open black gaps, high detail, uniform across the frame, no color."
+ },
+ {
+  "name": "wood",
+  "size": "1024x1024",
+  "prompt": "Seamless tileable texture. Straight-down orthographic view of weathered sun-bleached driftwood planks running vertically, warm grey-brown wood with clear grain, small knots, cracks and a few rusty nail heads, slight salt bleaching. Flat diffuse lighting, no cast shadows, no vignette, high-detail photographic material scan."
+ },
+ {
+  "name": "plaster",
+  "size": "1024x1024",
+  "prompt": "Seamless tileable texture. Front orthographic view of a weathered whitewashed lighthouse wall: off-white lime paint over stone masonry, subtle stone block outlines showing through, hairline cracks, faint salt staining and soft grime streaks. Flat diffuse lighting, no cast shadows, no vignette, uniform, high-detail photographic material scan."
+ },
+ {
+  "name": "feather",
+  "size": "1024x1024",
+  "background": "transparent",
+  "prompt": "A single isolated pelican contour feather, perfectly vertical and centered, quill at the bottom center and rounded tip at the top, filling almost the full height and about 45 percent of the width. Pale silvery grey-white with a very subtle warm cream tint, clearly visible central rachis shaft, fine parallel barbs on both vanes, soft downy fluff near the base. Flat even studio lighting, no shadow, transparent background, high detail."
+ },
+ {
+  "name": "mode_fish",
+  "size": "1536x1024",
+  "ref": "promo/key-art-1920x1088.jpg (缩到 1024 宽)",
+  "prompt": "Painterly-realistic illustration in the exact style, palette and lighting of the reference image: warm golden-hour sunset over a tropical island, soft glowing light, rich detail, gentle atmospheric haze. A white pelican riding a vintage commuter bicycle along the wet shoreline, a glowing golden fish leaping out of the turquoise shallow water in an arc toward its open beak, sparkling splash droplets, small concentric glowing ripples on the water. No text, no letters, no logos, no UI."
+ },
+ {
+  "name": "mode_race",
+  "size": "1536x1024",
+  "ref": "promo/key-art-1920x1088.jpg (缩到 1024 宽)",
+  "prompt": "Painterly-realistic illustration in the exact style, palette and lighting of the reference image: warm golden-hour sunset over a tropical island, soft glowing light, rich detail, gentle atmospheric haze. A white pelican riding a bicycle fast along a winding coastal dirt road, leaning into a curve, passing through a large floating glowing aqua light ring checkpoint, more glowing rings receding along the road into the distance, motion streaks. No text, no letters, no logos, no UI."
+ },
+ {
+  "name": "mode_stunt",
+  "size": "1536x1024",
+  "ref": "promo/key-art-1920x1088.jpg (缩到 1024 宽)",
+  "prompt": "Painterly-realistic illustration in the exact style, palette and lighting of the reference image: warm golden-hour sunset over a tropical island, soft glowing light, rich detail, gentle atmospheric haze. A white pelican on a bicycle flying high in the air off a wooden kicker ramp on a sand dune, mid-air spin, feathers ruffling, sea and sunset sky behind, dynamic low-angle view. No text, no letters, no logos, no UI."
+ },
+ {
+  "name": "mode_free",
+  "size": "1536x1024",
+  "ref": "promo/key-art-1920x1088.jpg (缩到 1024 宽)",
+  "prompt": "Painterly-realistic illustration in the exact style, palette and lighting of the reference image: warm golden-hour sunset over a tropical island, soft glowing light, rich detail, gentle atmospheric haze. A white pelican riding a bicycle slowly through a lush green meadow with palm trees on a hill above the sea at dusk, fireflies starting to glow, red-and-white striped lighthouse on a distant headland, calm and peaceful. No text, no letters, no logos, no UI."
+ },
+ {
+  "name": "badge_lighthouse_sunset",
+  "size": "1024x1024",
+  "background": "transparent",
+  "prompt": "Single circular collectible achievement badge medallion, centered, filling about 85 percent of the frame, transparent background. Warm sunset palette (amber, coral, sand, deep teal), painterly enamel-pin style with a thin golden rim, soft inner glow, high detail, no text, no letters. Inside the badge: a red-and-white striped lighthouse silhouetted against a big orange setting sun over the sea."
+ },
+ {
+  "name": "badge_flock_overhead",
+  "size": "1024x1024",
+  "background": "transparent",
+  "prompt": "Single circular collectible achievement badge medallion, centered, filling about 85 percent of the frame, transparent background. Warm sunset palette (amber, coral, sand, deep teal), painterly enamel-pin style with a thin golden rim, soft inner glow, high detail, no text, no letters. Inside the badge: a V-shaped flock of seabirds flying overhead across a glowing peach sky."
+ },
+ {
+  "name": "badge_fish_leap",
+  "size": "1024x1024",
+  "background": "transparent",
+  "prompt": "Single circular collectible achievement badge medallion, centered, filling about 85 percent of the frame, transparent background. Warm sunset palette (amber, coral, sand, deep teal), painterly enamel-pin style with a thin golden rim, soft inner glow, high detail, no text, no letters. Inside the badge: a glowing golden fish leaping out of turquoise water with splash droplets."
+ },
+ {
+  "name": "badge_nest_chicks",
+  "size": "1024x1024",
+  "background": "transparent",
+  "prompt": "Single circular collectible achievement badge medallion, centered, filling about 85 percent of the frame, transparent background. Warm sunset palette (amber, coral, sand, deep teal), painterly enamel-pin style with a thin golden rim, soft inner glow, high detail, no text, no letters. Inside the badge: a twig nest on a wooden post with three fluffy white pelican chicks with open orange beaks."
+ },
+ {
+  "name": "badge_airborne",
+  "size": "1024x1024",
+  "background": "transparent",
+  "prompt": "Single circular collectible achievement badge medallion, centered, filling about 85 percent of the frame, transparent background. Warm sunset palette (amber, coral, sand, deep teal), painterly enamel-pin style with a thin golden rim, soft inner glow, high detail, no text, no letters. Inside the badge: a white pelican on a bicycle flying through the air off a wooden ramp."
+ },
+ {
+  "name": "badge_fireflies",
+  "size": "1024x1024",
+  "background": "transparent",
+  "prompt": "Single circular collectible achievement badge medallion, centered, filling about 85 percent of the frame, transparent background. Warm sunset palette (amber, coral, sand, deep teal), painterly enamel-pin style with a thin golden rim, soft inner glow, high detail, no text, no letters. Inside the badge: glowing yellow-green fireflies over dark grass under a deep blue night sky with a crescent moon."
+ },
+ {
+  "name": "badge_gulls",
+  "size": "1024x1024",
+  "background": "transparent",
+  "prompt": "Single circular collectible achievement badge medallion, centered, filling about 85 percent of the frame, transparent background. Warm sunset palette (amber, coral, sand, deep teal), painterly enamel-pin style with a thin golden rim, soft inner glow, high detail, no text, no letters. Inside the badge: two seagulls diving with wings swept back, one carrying a golden fish."
+ },
+ {
+  "name": "badge_night_lighthouse",
+  "size": "1024x1024",
+  "background": "transparent",
+  "prompt": "Single circular collectible achievement badge medallion, centered, filling about 85 percent of the frame, transparent background. Warm sunset palette (amber, coral, sand, deep teal), painterly enamel-pin style with a thin golden rim, soft inner glow, high detail, no text, no letters. Inside the badge: a lighthouse at night casting two long golden light beams across a starry deep-blue sky."
+ },
+ {
+  "name": "badge_ghost",
+  "size": "1024x1024",
+  "background": "transparent",
+  "prompt": "Single circular collectible achievement badge medallion, centered, filling about 85 percent of the frame, transparent background. Warm sunset palette (amber, coral, sand, deep teal), painterly enamel-pin style with a thin golden rim, soft inner glow, high detail, no text, no letters. Inside the badge: a translucent glowing aqua ghostly bicycle rider silhouette leaving a light trail."
+ },
+ {
+  "name": "icon_fish",
+  "size": "1024x1024",
+  "background": "transparent",
+  "prompt": "A single small tropical fish shown in side profile facing right, glowing warm golden-amber with soft luminous scales and translucent fins, painterly game icon style, centered, filling 80 percent of the width, transparent background, no text."
+ },
+ {
+  "name": "spr_splash",
+  "size": "1024x1024",
+  "prompt": "On a pure black background, centered, filling about 70 percent of the frame, nothing else in the image, soft edges, high detail, for use as an additive particle sprite: a crown-shaped burst of white sea water splash droplets and spray, bright white and pale aqua."
+ },
+ {
+  "name": "spr_sparkle",
+  "size": "1024x1024",
+  "prompt": "On a pure black background, centered, filling about 70 percent of the frame, nothing else in the image, soft edges, high detail, for use as an additive particle sprite: a glowing four-point star sparkle glint with thin light rays and a soft round halo, warm white-gold."
+ },
+ {
+  "name": "spr_feather",
+  "size": "1024x1024",
+  "prompt": "On a pure black background, centered, filling about 70 percent of the frame, nothing else in the image, soft edges, high detail, for use as an additive particle sprite: a single small fluffy white down feather, softly lit, slightly translucent."
+ },
+ {
+  "name": "spr_orb",
+  "size": "1024x1024",
+  "prompt": "On a pure black background, centered, filling about 70 percent of the frame, nothing else in the image, soft edges, high detail, for use as an additive particle sprite: a soft round glowing firefly light orb with a bright small core and a smooth wide falloff halo, warm yellow-green, perfectly radially symmetric."
+ }
+]

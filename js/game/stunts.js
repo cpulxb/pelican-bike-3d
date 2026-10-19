@@ -76,7 +76,7 @@ export class Stunts {
     }
     const geo = mergeColored(parts);
     this.geos.push(geo);
-    const mesh = new THREE.Mesh(geo, propMaterial());
+    const mesh = new THREE.Mesh(geo, propMaterial('wood'));
     mesh.position.set(x0, base, z0);
     mesh.rotation.y = r.yaw;
     mesh.castShadow = true;

@@ -129,7 +129,7 @@ export class TimeTrial {
   _pass(player) {
     const ring = this.rings[this.next];
     const p = ring.group.position;
-    this.particles.burst({ x: p.x, y: p.y, z: p.z, count: 50, speed: 6, up: 2, spread: 1.5, color: [1, 0.8, 0.4], intensity: 2.6, size: 0.2, life: 0.9, gravity: 2 });
+    this.particles.burst({ x: p.x, y: p.y, z: p.z, count: 50, speed: 6, up: 2, spread: 1.5, color: [1, 0.8, 0.4], intensity: 2.6, size: 0.2, sprite: 1, life: 0.9, gravity: 2 });
     let ev;
     if (this.next === 0) {
       if (this.lapStart < 0) {

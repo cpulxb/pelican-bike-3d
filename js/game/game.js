@@ -119,6 +119,9 @@ export class Game {
         this.ui.trick(r?.lost ? `摔车！连击 ${r.lost} 分作废` : '摔车！', 'bad', 1600);
         this.audio?.crash?.();
         this.stats.crashes = (this.stats.crashes || 0) + 1;
+        // 摔车：一蓬绒羽（图集第 3 格；没有图集时就是几粒柔光）
+        const pp = this.ctx.player.pos;
+        this.particles.burst({ x: pp.x, y: pp.y + 1.0, z: pp.z, count: 18, speed: 1.6, up: 1.6, spread: 1.0, color: [1, 0.96, 0.88], intensity: 0.9, size: 0.16, life: 1.6, gravity: 0.8, drag: 1.6, sprite: 3 });
         return { crash: true };
       }
       this.ui.trick('落地不稳', 'warn');
@@ -409,7 +412,7 @@ export class Game {
         this.score += reward;
         this.stats.missions += done.length;
       }
-      this.ui.banner('任务完成', `${title}  +${reward}`, 2200, 'mission');
+      this.ui.banner('任务完成', `${title}  +${reward}`, 2200, 'mission', done[0].id);
       this.audio?.mission?.();
     } else if (this.gameplay) {
       this.ctx.toast('已存入相册');
@@ -541,7 +544,7 @@ export class Game {
     this.stats.deliveries++;
     this.stats.bestDelivery = Math.max(this.stats.bestDelivery, n);
     const at = z.nestTop || { x: z.x, y: z.y + 2, z: z.z };
-    this.particles.burst({ x: at.x, y: at.y, z: at.z, count: 70, speed: 5, up: 6, spread: 1.4, color: [1, 0.78, 0.4], intensity: 2.6, size: 0.18, life: 1.3, gravity: 7 });
+    this.particles.burst({ x: at.x, y: at.y, z: at.z, count: 70, speed: 5, up: 6, spread: 1.4, color: [1, 0.78, 0.4], intensity: 2.6, size: 0.18, sprite: 1, life: 1.3, gravity: 7 });
     this.particles.burst({ x: at.x, y: at.y, z: at.z, count: 40, speed: 4, up: 5, spread: 1.2, color: [0.5, 1, 0.9], intensity: 2.4, size: 0.15, life: 1.1, gravity: 7 });
     this.ui.banner(`+${pts}`, `${z.name} · 送达 ${n} 条${n > 1 ? `（×${(1 + 0.3 * (n - 1)).toFixed(1)}）` : ''}${z.mult > 1 ? ' · 灯塔加成 ×1.5' : ''}`, 1700, 'gold');
     this.audio?.deliver?.(n);

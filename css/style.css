@@ -277,7 +277,8 @@ body.is-game .controls button em { display: none; }
 .ghud__side { position: absolute; left: calc(var(--edge-x) + var(--safe-l)); top: calc(var(--edge-y) + 118px); display: flex; flex-direction: column; gap: 12px; }
 .pouch { display: none; padding: 9px 12px 10px; border-radius: 12px; background: var(--glass); border: var(--hair) solid var(--glass-line); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 body.mode-fish .pouch, body.mode-free .pouch { display: block; }
-.pouch__label { font-size: 11px; letter-spacing: 0.3em; color: var(--fg-dim); margin-bottom: 6px; }
+.pouch__label { font-size: 11px; letter-spacing: 0.3em; color: var(--fg-dim); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.pouch__label::before { content: ""; width: 20px; height: 20px; background: url(../assets/ui/fish.webp) center / contain no-repeat; filter: drop-shadow(0 0 6px rgba(255, 179, 71, 0.6)); }
 .pouch__slots { display: flex; gap: 5px; }
 .pouch__slots i {
   width: 22px; height: 12px; border-radius: 50% 40% 40% 50%; position: relative;
@@ -312,7 +313,11 @@ body.mode-free .combo.live, body.mode-fish .combo.live { display: block; }
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   animation: riseIn 0.6s var(--ease) both;
 }
-.mcard__cam { color: var(--amber); font-size: 14px; line-height: 1.3; }
+.mcard__cam {
+  flex: none; width: 34px; height: 34px; margin: -2px 0; border-radius: 50%;
+  background: var(--art) center / contain no-repeat, radial-gradient(circle, rgba(255, 179, 71, 0.35), rgba(255, 179, 71, 0.08) 70%);
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
+}
 .mcard b { display: block; font-size: 13px; font-weight: 500; letter-spacing: 0.08em; }
 .mcard small { display: block; font-size: 11.5px; color: var(--fg-dim); margin-top: 2px; line-height: 1.45; }
 
@@ -331,6 +336,8 @@ body.mode-free .combo.live, body.mode-fish .combo.live { display: block; }
 @keyframes countIn { 0% { transform: scale(1.6); opacity: 0; } 30% { opacity: 1; } 100% { transform: scale(1); } }
 .banner.warn .banner__big { background: linear-gradient(180deg, #fff 10%, #ffc0b0 50%, var(--coral) 120%); -webkit-background-clip: text; background-clip: text; }
 .banner.mission .banner__big { font-size: clamp(36px, 6vw, 72px); }
+.banner.has-badge::before { content: ""; display: block; width: clamp(72px, 9vw, 112px); aspect-ratio: 1; margin: 0 auto 10px; background: var(--art) center / contain no-repeat; filter: drop-shadow(0 6px 22px rgba(255, 179, 71, 0.45)); animation: badgePop 0.7s var(--spring) both; }
+@keyframes badgePop { from { transform: scale(0.4) rotate(-12deg); opacity: 0; } to { transform: none; opacity: 1; } }
 .banner.gold .banner__big { background: linear-gradient(180deg, #fff 5%, #ffe08a 50%, var(--amber-hot) 115%); -webkit-background-clip: text; background-clip: text; }
 
 .trick {
@@ -456,7 +463,7 @@ body.is-menu .menu__scrim { background: linear-gradient(90deg, rgba(6, 19, 26, 0
 /* 模式卡 */
 .modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-top: 18px; }
 .mode {
-  all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 8px; padding: 18px 18px 16px; border-radius: 18px; min-height: 250px; height: auto;
+  all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 8px; padding: 18px 18px 16px; border-radius: 18px; min-height: 330px; height: auto; overflow: hidden;
   background: linear-gradient(170deg, rgba(23, 80, 92, 0.38), rgba(6, 22, 29, 0.66));
   border: var(--hair) solid var(--glass-line);
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
@@ -464,6 +471,14 @@ body.is-menu .menu__scrim { background: linear-gradient(90deg, rgba(6, 19, 26, 0
   transition: transform 0.4s var(--ease), border-color 0.3s, box-shadow 0.4s;
 }
 .mode:hover, .mode:focus-visible { transform: translateY(-6px); border-color: rgba(255, 179, 71, 0.6); box-shadow: 0 30px 50px -24px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 179, 71, 0.2); outline: none; }
+.mode__art {
+  display: block; margin: -18px -18px 0; height: 118px; border-radius: 18px 18px 0 0;
+  background: linear-gradient(180deg, rgba(6, 22, 29, 0) 45%, rgba(6, 22, 29, 0.78) 100%), var(--art) center 40% / cover no-repeat, linear-gradient(160deg, rgba(255, 179, 71, 0.25), rgba(23, 80, 92, 0.3));
+  transition: filter 0.4s var(--ease);
+  filter: saturate(0.92) brightness(0.92);
+}
+.mode:hover .mode__art, .mode:focus-visible .mode__art { filter: saturate(1.05) brightness(1.05); }
+.mode__art + .mode__ico { margin-top: -34px; margin-left: 2px; position: relative; background: rgba(8, 26, 33, 0.82); border: var(--hair) solid rgba(255, 179, 71, 0.35); }
 .mode__ico { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 14px; background: rgba(255, 179, 71, 0.12); }
 .mode__name { font-size: 19px; font-weight: 500; letter-spacing: 0.12em; margin-top: 4px; }
 .mode__desc { font-size: 12.5px; line-height: 1.7; color: var(--fg-dim); flex: 1 0 auto; }
@@ -512,8 +527,14 @@ body.is-menu .menu__scrim { background: linear-gradient(90deg, rgba(6, 19, 26, 0
 /* 任务列表 */
 .mislist { list-style: none; margin: 0 auto; padding: 0; max-width: 620px; display: flex; flex-direction: column; gap: 8px; }
 .mis { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-radius: 14px; background: var(--glass); border: var(--hair) solid var(--glass-line); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-.mis__check { width: 24px; height: 24px; flex: none; border-radius: 50%; border: 1.5px solid var(--fg-faint); display: grid; place-items: center; font-size: 13px; color: var(--ink); }
-.mis.done .mis__check { background: var(--lime); border-color: var(--lime); }
+.mis__badge {
+  position: relative; width: 52px; height: 52px; flex: none; border-radius: 50%;
+  background: var(--art) center / contain no-repeat, radial-gradient(circle, rgba(242, 228, 205, 0.12), transparent 70%);
+  filter: grayscale(0.85) brightness(0.62); opacity: 0.8; transition: filter 0.4s, opacity 0.4s;
+}
+.mis.done .mis__badge { filter: drop-shadow(0 3px 10px rgba(255, 179, 71, 0.35)); opacity: 1; }
+.mis__badge i { position: absolute; right: -2px; bottom: -2px; width: 18px; height: 18px; border-radius: 50%; display: none; place-items: center; font-style: normal; font-size: 11px; color: var(--ink); background: var(--lime); }
+.mis.done .mis__badge i { display: grid; }
 .mis.done .mis__txt b { color: var(--fg-dim); text-decoration: line-through; text-decoration-color: rgba(242, 228, 205, 0.3); }
 .mis__txt { flex: 1; }
 .mis__txt b { display: block; font-size: 15px; font-weight: 500; letter-spacing: 0.08em; }
@@ -553,7 +574,11 @@ body.is-menu .menu__scrim { background: linear-gradient(90deg, rgba(6, 19, 26, 0
 /* ---------- 加载器 ---------- */
 .loader {
   position: fixed; inset: 0; z-index: 40; display: grid; place-content: center; justify-items: center; gap: 16px;
-  background: radial-gradient(90% 70% at 50% 40%, #173c48 0%, var(--ink) 70%);
+  /* 主视觉（gpt-image-2.5）压暗后做底；图没加载到时露出最下层的渐变 */
+  background:
+    linear-gradient(180deg, rgba(8, 22, 29, 0.38) 0%, rgba(8, 22, 29, 0.62) 55%, rgba(8, 22, 29, 0.92) 100%),
+    url(../assets/ui/key-art.webp) center 35% / cover no-repeat,
+    radial-gradient(90% 70% at 50% 40%, #173c48 0%, var(--ink) 70%);
   transition: opacity 0.9s var(--ease), visibility 0.9s;
 }
 .loader.gone { opacity: 0; visibility: hidden; }

@@ -2,9 +2,10 @@
  * mesh.js —— 游戏道具用的小几何工具
  *
  * 道具（灯塔、鸟巢、跳台、海鸥……）全部用「顶点色」上色：
- * 一个物体合并成一个几何 + 一个材质 = 一个 draw call，而且不需要任何贴图。
+ * 一个物体合并成一个几何 + 一个材质 = 一个 draw call。木头 / 墙面的细节靠三平面投影的细节贴图（可缺省）。
  */
 import * as THREE from 'three';
+import { ART, ART_GAIN, addTriplanarDetail } from '../gfx/textures.js';
 
 const _c = new THREE.Color();
 const _m = new THREE.Matrix4();
@@ -61,13 +62,30 @@ export function mergeColored(parts) {
   return out;
 }
 
-/** 一个所有道具共用的顶点色材质 */
-let _propMat = null;
-export function propMaterial() {
-  if (!_propMat) {
-    _propMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0.0, flatShading: true });
-  }
-  return _propMat;
+/**
+ * 道具的顶点色材质：按「材质类别」各共用一个。
+ *   'plain'   纯顶点色（原来的样子）
+ *   'wood'    跳台 / 鸟巢：叠一层木纹细节（gpt-image-2.5 生成的漂流木板材）
+ *   'plaster' 灯塔：叠一层石灰墙面细节（隐约的石块缝、裂纹、盐渍）
+ *
+ * 细节贴图用物体空间的三平面投影采样 —— 合并后的道具几何没有 uv，
+ * 三平面投影也不怕圆柱、圆锥这类会把 uv 拉伸的形状。
+ * 贴图是除过平均色的「归一化细节」，乘上去以后物体的整体颜色（红白条纹、木色）不变。
+ * 贴图没加载到时 onBeforeCompile 不挂，材质与原来完全一致。
+ */
+const _propMats = {};
+const PROP_DETAIL = {
+  // scale：每米多少个贴图周期；swapTop：顶面投影交换坐标，让木纹横过跳台（木板是横铺的）
+  wood: { scale: 1 / 2.4, strength: 0.85, swapTop: true },
+  plaster: { scale: 1 / 3.2, strength: 0.75, swapTop: false },
+};
+export function propMaterial(kind = 'plain') {
+  if (_propMats[kind]) return _propMats[kind];
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0.0, flatShading: true });
+  const cfg = PROP_DETAIL[kind];
+  if (cfg) addTriplanarDetail(m, ART.get(kind), { ...cfg, gain: ART_GAIN[kind], key: `prop-${kind}` });
+  _propMats[kind] = m;
+  return m;
 }
 
 /**

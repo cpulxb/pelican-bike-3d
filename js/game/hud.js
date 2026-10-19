@@ -28,6 +28,13 @@ const ICONS = {
   sight: '<svg viewBox="0 0 48 48"><circle cx="24" cy="30" r="9"/><path d="M4 30h6M38 30h6M24 10v6M10 16l4 4M38 16l-4 4" fill="none" stroke-width="3"/></svg>',
 };
 
+/**
+ * 界面插画（gpt-image-2.5，assets/ui/）的绝对地址。
+ * 必须是绝对地址：写在 CSS 自定义属性里的相对 url() 会按「使用它的样式表」解析，
+ * 也就是 css/ 目录，而不是页面目录。图没加载到时卡片只是少一张插画。
+ */
+const uiAsset = (name) => new URL(`assets/ui/${name}`, document.baseURI).href;
+
 export const MODES = {
   fish: { name: '捕鱼 · 喉囊', desc: '3 分钟。接住跃出水面的发光鱼，送回鸟巢或灯塔。一次送得越多越值钱，但喉囊满了海鸥就会来抢。', icon: 'fish', duration: 180, record: 'fish', unit: '分' },
   race: { name: '检查点计时赛', desc: '环岛 10 个光环 × 3 圈。分段对比最佳圈，最佳圈会变成幽灵车陪你跑。', icon: 'race', record: 'race', lower: true, unit: '' },
@@ -131,7 +138,7 @@ export class GameUI {
           <button class="pill" data-action="help">操作</button>
         </div>
       </nav>
-      <p class="menu__foot">纯代码生成 · 零外部模型 / 贴图 / 音频</p>`;
+      <p class="menu__foot">程序化建模与音效 · 表面贴图与插画由 gpt-image-2.5 绘制</p>`;
   }
 
   _screen_modes() {
@@ -148,6 +155,7 @@ export class GameUI {
       } else rec = '无计时';
       return `
         <button class="mode" data-action="start" data-arg="${id}">
+          <span class="mode__art" style="--art: url(${uiAsset(`mode-${id}.webp`)})" aria-hidden="true"></span>
           <span class="mode__ico">${ICONS[m.icon]}</span>
           <span class="mode__name">${m.name}</span>
           <span class="mode__desc">${m.desc}</span>
@@ -202,7 +210,7 @@ export class GameUI {
     const done = this.game.photos.done;
     const list = MISSIONS.map((m) => `
       <li class="mis ${done.has(m.id) ? 'done' : ''}">
-        <span class="mis__check">${done.has(m.id) ? '✓' : ''}</span>
+        <span class="mis__badge" style="--art: url(${uiAsset(`badge-${m.id}.webp`)})" aria-hidden="true"><i>${done.has(m.id) ? '✓' : ''}</i></span>
         <span class="mis__txt"><b>${m.title}</b><small>${m.desc}</small></span>
         <span class="mis__reward">+${m.reward}</span>
       </li>`).join('');
@@ -343,17 +351,19 @@ export class GameUI {
     const key = s.missions.map((m) => m.id).join(',');
     if (key !== this._missionKey) {
       this._missionKey = key;
-      el.missions.innerHTML = s.missions.map((m) => `<div class="mcard"><span class="mcard__cam">▣</span><span><b>${m.title}</b><small>${m.desc}</small></span></div>`).join('');
+      el.missions.innerHTML = s.missions.map((m) => `<div class="mcard"><span class="mcard__cam" style="--art: url(${uiAsset(`badge-${m.id}.webp`)})" aria-hidden="true"></span><span><b>${m.title}</b><small>${m.desc}</small></span></div>`).join('');
     }
 
     this._drawMap(s.map);
   }
 
-  banner(big, small = '', ms = 1400, cls = '') {
+  /** @param {string} [badge] 拍照任务 id：横幅上方显示该任务的徽章 */
+  banner(big, small = '', ms = 1400, cls = '', badge = '') {
     const b = this.el.banner;
     this.el.bannerBig.textContent = big;
     this.el.bannerSmall.textContent = small;
-    b.className = `banner show ${cls}`;
+    if (badge) b.style.setProperty('--art', `url(${uiAsset(`badge-${badge}.webp`)})`);
+    b.className = `banner show ${cls}${badge ? ' has-badge' : ''}`;
     clearTimeout(this._bt);
     if (ms > 0) this._bt = setTimeout(() => b.classList.remove('show'), ms);
   }

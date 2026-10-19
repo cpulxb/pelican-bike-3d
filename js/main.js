@@ -17,6 +17,7 @@ import * as THREE from 'three';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
 import { Environment } from './world/environment.js';
+import { loadArt } from './gfx/textures.js';
 import { SkyDirector } from './world/sky.js';
 import { Bike, BIKE } from './objects/bike.js';
 import { Pelican } from './objects/pelican.js';
@@ -180,6 +181,12 @@ async function main() {
   /* ---------------- 2. 场景与相机 ---------------- */
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.06, 6000);
+
+  /* ---------------- 2b. 美术贴图 ----------------
+   * 必须在世界构建之前：各模块在构造时读取 ART 注册表。
+   * 贴图失败 / 超时都不会抛错，只是对应部分留在程序化外观。 */
+  boot.set(0.05, '正在铺开沙粒、草叶与礁石的质感…');
+  await loadArt(renderer, state.quality, (f) => boot.set(0.05 + f * 0.08));
 
   /* ---------------- 3. 世界 ---------------- */
   boot.set(0.14, '正在隆起海岛的沙丘…');
@@ -1149,6 +1156,7 @@ async function main() {
   function applyQuality(q, manual = false) {
     state.quality = q;
     env.quality = q;
+    env.setArtQuality(q);
     if (manual) {
       perf._qualityCooldown = 12;
       toast(`画质：${QUALITY_LABEL[q] || q}`);
