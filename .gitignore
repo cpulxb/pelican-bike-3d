@@ -1,0 +1,8 @@
+# 操作系统 / 编辑器产生的杂项
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# 日志
+*.log

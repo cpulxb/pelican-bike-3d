@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="description" content="一只鹈鹕骑着自行车环游海岛 —— 纯 WebGL / three.js 实时 3D 场景" />
+<meta name="theme-color" content="#0b1a22" />
+<title>鹈鹕骑行 · Pelican on a Bicycle</title>
+
+<!-- 内联 SVG favicon：一只极简的鹈鹕剪影，省掉一次请求 -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1f29'/%3E%3Cpath d='M7 20c0-4 3-7 7-7h6l5 3-2 2h-3v5a4 4 0 0 1-4 4h-1v-6H11a4 4 0 0 1-4-4z' fill='%23ffb347'/%3E%3Ccircle cx='20' cy='15' r='1.4' fill='%230b1f29'/%3E%3C/svg%3E" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="./css/style.css" />
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/build/three.module.js",
+    "three/addons/": "./vendor/examples/jsm/"
+  }
+}
+</script>
+</head>
+
+<body>
+  <!-- WebGL 画布容器 -->
+  <div id="stage">
+    <canvas id="scene"></canvas>
+  </div>
+
+  <!-- 胶片颗粒 / 暗角（纯 CSS，与后期处理叠加） -->
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- 顶部：标题卡 -->
+  <header class="titlecard" id="titlecard">
+    <div class="titlecard__rule"></div>
+    <h1>鹈 鹕 骑 行</h1>
+    <p class="titlecard__en">A Pelican on a Bicycle</p>
+    <p class="titlecard__sub">环岛 · 黄昏 · 实时渲染</p>
+  </header>
+
+  <!-- 右上：遥测面板 -->
+  <aside class="panel panel--telemetry" id="telemetry" aria-live="off">
+    <div class="panel__head"><span class="dot"></span>TELEMETRY</div>
+    <div class="rows">
+      <div class="row"><span>速度</span><b><i id="t-speed">0.0</i> km/h</b></div>
+      <div class="row"><span>踏频</span><b><i id="t-cadence">0</i> rpm</b></div>
+      <div class="row"><span>里程</span><b><i id="t-odo">0.00</i> km</b></div>
+      <div class="row"><span>方位</span><b><i id="t-heading">000</i>°</b></div>
+      <div class="row"><span>离地</span><b><i id="t-alt">0.0</i> m</b></div>
+      <div class="row"><span>时刻</span><b id="t-clock">17:20</b></div>
+      <div class="row"><span>帧率</span><b><i id="t-fps">60</i> fps</b></div>
+      <div class="row"><span>三角面</span><b><i id="t-tris">0</i>k</b></div>
+    </div>
+    <div class="spark"><canvas id="sparkline" width="220" height="34"></canvas></div>
+  </aside>
+
+  <!-- 左下：操作提示 -->
+  <div class="hints" id="hints">
+    <div class="hints__head">操作</div>
+    <ul>
+      <li><kbd>W</kbd><kbd>S</kbd><span>加速 / 刹车</span></li>
+      <li><kbd>A</kbd><kbd>D</kbd><span>左右转向</span></li>
+      <li><kbd>Space</kbd><span>起跳</span></li>
+      <li><kbd>1</kbd>–<kbd>4</kbd><span>切换镜头</span></li>
+      <li><kbd>B</kbd><span>摇车铃</span></li>
+      <li><kbd>P</kbd><span>拍照存档</span></li>
+      <li><kbd>H</kbd><span>隐藏界面</span></li>
+      <li><kbd>拖拽</kbd><span>轨道视角</span></li>
+    </ul>
+  </div>
+
+  <!-- 右下：按钮组 -->
+  <div class="controls" id="controls">
+    <button data-act="camera" title="切换镜头 (1-4)"><span class="ico">◎</span><em>镜头</em></button>
+    <button data-act="auto" class="on" title="自动骑行 / 手动操控"><span class="ico">⟳</span><em>自动</em></button>
+    <button data-act="photo" title="截图 (P)"><span class="ico">▣</span><em>拍照</em></button>
+    <button data-act="audio" title="声音 (M)"><span class="ico">♪</span><em>声音</em></button>
+    <button data-act="gui" title="调参面板"><span class="ico">≡</span><em>参数</em></button>
+  </div>
+
+  <!-- 中央：加载 / 提示 -->
+  <div class="loader" id="loader">
+    <div class="loader__bird">🦩</div>
+    <div class="loader__bar"><i id="loader-bar"></i></div>
+    <div class="loader__text" id="loader-text">正在编织羽毛…</div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <noscript>
+    <div class="noscript">此页面需要启用 JavaScript 与 WebGL2 才能运行。</div>
+  </noscript>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
