@@ -1,7 +1,7 @@
 /**
  * environment.js —— 世界构建
  *
- * 场景里没有一张图片、没有一个外部模型，全部由代码生成：
+ * 几何与动画全部由代码生成；地形、海面、岩石另叠一层可选的细节贴图（见 gfx/textures.js）：
  *   · 天空      解析式大气散射 + 平面云场（单张球体，一次 draw call）
  *   · 地形      分块 + 三档 LOD，顶点高度来自 CPU 噪声函数
  *   · 海洋      两层：近处 Gerstner 波网格 + 远处平坦「海天板」
@@ -21,6 +21,7 @@ import {
   tubeFromCurve, curveFrom, noiseDeform, mergeGeometries, TRS, transformed, featherBlade,
 } from '../util/geometry.js';
 import * as S from '../gfx/shaders.js';
+import { ART, ART_GAIN, placeholderTexture, addTriplanarDetail } from '../gfx/textures.js';
 
 /* ------------------------------------------------------------------ *
  * 世界常量
@@ -86,6 +87,22 @@ export class Environment {
       uHeadPos: { value: new THREE.Vector3() },
       uHeadDir: { value: new THREE.Vector3(0, -0.2, 1) },
       uHeadI: { value: 0 },
+    };
+
+    /* ---------- 美术贴图（可能为空：加载失败时整套走程序化回退）---------- */
+    const tx = (k) => ART.get(k) || placeholderTexture();
+    const artLevel = ART.level === 'full' ? 2 : ART.level === 'albedo' ? 1 : 0;
+    this.art = {
+      // 地形：0 程序化 / 1 细节色 / 2 细节色 + 法线。setQuality('low') 时降到 1
+      uArt: { value: artLevel },
+      uArtMax: artLevel,
+      uSeaArt: { value: ART.get('seaNF') ? 1 : 0 },
+      uArtGain: { value: new THREE.Vector4(ART_GAIN.sand, ART_GAIN.wetsand, ART_GAIN.grass, ART_GAIN.rock) },
+      uSandA: { value: tx('sandA') }, uSandN: { value: tx('sandN') },
+      uWetA: { value: tx('wetA') }, uWetN: { value: tx('wetN') },
+      uGrassA: { value: tx('grassA') }, uGrassN: { value: tx('grassN') },
+      uRockA: { value: tx('rockA') }, uRockN: { value: tx('rockN') },
+      uSeaNF: { value: tx('seaNF') },
     };
     /** 额外的风力（游戏里的阵风），叠加在随车速变化的基础风上 */
     this.windBoost = 0;
@@ -188,6 +205,13 @@ export class Environment {
         uHeadPos: this.u.uHeadPos,
         uHeadDir: this.u.uHeadDir,
         uHeadI: this.u.uHeadI,
+        uArt: this.art.uArt,
+        uArtGain: this.art.uArtGain,
+        uSandA: this.art.uSandA, uSandN: this.art.uSandN,
+        uWetA: this.art.uWetA, uWetN: this.art.uWetN,
+        uGrassA: this.art.uGrassA, uGrassN: this.art.uGrassN,
+        uRockA: this.art.uRockA, uRockN: this.art.uRockN,
+        uSeaNF: this.art.uSeaNF,
       },
       vertexShader: S.TERRAIN_VERT,
       fragmentShader: S.TERRAIN_FRAG,
@@ -384,6 +408,8 @@ export class Environment {
         uHeightMap: { value: this.heightMap },
         uMapOrigin: { value: this.heightMapOrigin },
         uMapSize: { value: this.heightMapSize },
+        uArt: this.art.uSeaArt,
+        uSeaNF: this.art.uSeaNF,
       },
       vertexShader: S.WATER_VERT,
       fragmentShader: S.WATER_FRAG,
@@ -528,6 +554,10 @@ export class Environment {
       color: 0x6d6459, roughness: 0.92, metalness: 0.0, flatShading: true,
     });
     this.disposables.push(rockMat, rockMatDark);
+    // 岩石表面：与地形岩层同一张细节贴图（物体空间三平面投影，单位球 ≈ 一块石头）
+    for (const [m, k] of [[rockMat, 'a'], [rockMatDark, 'b']]) {
+      addTriplanarDetail(m, ART.get('rockA'), { scale: 0.75, strength: 0.9, gain: ART_GAIN.rock, key: `rock-${k}` });
+    }
 
     const rockA = new THREE.InstancedMesh(rockGeoBase, rockMat, WORLD.rockCount);
     const rockB = new THREE.InstancedMesh(rockGeo2, rockMatDark, Math.floor(WORLD.rockCount * 0.6));
@@ -796,6 +826,11 @@ export class Environment {
 
   /** 世界任意点的地面高度 */
   heightAt(x, z) { return terrainHeight(x, z); }
+
+  /** 画质档变化：低档只保留地形细节色、不采样法线贴图（每像素省 5~9 次采样） */
+  setArtQuality(q) {
+    this.art.uArt.value = q === 'low' ? Math.min(1, this.art.uArtMax) : this.art.uArtMax;
+  }
 
   /** 地面法线 */
   normalAt(x, z, out) { return terrainNormal(x, z, 0.4, out); }

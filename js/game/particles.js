@@ -4,21 +4,26 @@
  * 一个 THREE.Points + 自研着色器，固定容量的环形缓冲。
  * 水花、捕鱼的金光、送达的彩屑、萤火虫拾取的光点都走这一个 draw call。
  *
- * 不用贴图：圆形软边在片元着色器里用 gl_PointCoord 算出来。
+ * 精灵图集（assets/textures/particles.webp，2×2）：0 光球 / 1 星芒 / 2 水花 / 3 绒羽。
+ * 图集没加载到时回落成原来的圆形软边（在片元着色器里用 gl_PointCoord 算出来）。
  * 每帧只在 CPU 上积分「活着」的粒子，不分配任何对象。
  */
 import * as THREE from 'three';
+import { ART, placeholderTexture } from '../gfx/textures.js';
 
 const VERT = /* glsl */`
   attribute vec4 aColor;     // rgb + 强度
   attribute float aSize;
   attribute float aLife;     // 1 → 0
+  attribute float aSprite;   // 图集格子 0..3
   varying vec4 vColor;
   varying float vLife;
+  varying float vSprite;
   uniform float uPixelRatio;
   void main() {
     vColor = aColor;
     vLife = aLife;
+    vSprite = aSprite;
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mv;
     float s = aSize * (0.35 + 0.65 * aLife);
@@ -26,14 +31,26 @@ const VERT = /* glsl */`
   }
 `;
 const FRAG = /* glsl */`
+  uniform sampler2D uAtlas;
+  uniform float uAtlasOn;
   varying vec4 vColor;
   varying float vLife;
+  varying float vSprite;
   void main() {
     vec2 c = gl_PointCoord - 0.5;
     float d = length(c);
     if (d > 0.5) discard;
-    float core = smoothstep(0.5, 0.0, d);
-    float a = core * core * vLife;
+    float a;
+    if (uAtlasOn > 0.5) {
+      // 图集是 2×2：上排 0 光球 / 1 星芒，下排 2 水花 / 3 绒羽（gl_PointCoord 的 y 朝下）
+      float col = mod(vSprite, 2.0);
+      float row = vSprite < 1.5 ? 0.5 : 0.0;
+      vec2 uv = vec2((col + gl_PointCoord.x) * 0.5, (1.0 - gl_PointCoord.y) * 0.5 + row);
+      a = texture2D(uAtlas, uv).r * vLife;
+    } else {
+      float core = 1.0 - smoothstep(0.0, 0.5, d);
+      a = core * core * vLife;
+    }
     gl_FragColor = vec4(vColor.rgb * vColor.a * a, a);
   }
 `;
@@ -46,6 +63,7 @@ export class Particles {
     this.col = new Float32Array(capacity * 4);
     this.size = new Float32Array(capacity);
     this.life = new Float32Array(capacity);
+    this.sprite = new Float32Array(capacity);
     this.decay = new Float32Array(capacity);
     this.grav = new Float32Array(capacity);
     this.drag = new Float32Array(capacity);
@@ -61,10 +79,16 @@ export class Particles {
     geo.setAttribute('aColor', this.aCol);
     geo.setAttribute('aSize', this.aSize);
     geo.setAttribute('aLife', this.aLife);
+    this.aSprite = new THREE.BufferAttribute(this.sprite, 1).setUsage(THREE.DynamicDrawUsage);
+    geo.setAttribute('aSprite', this.aSprite);
     geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);
 
     this.material = new THREE.ShaderMaterial({
-      uniforms: { uPixelRatio: { value: Math.min(2, window.devicePixelRatio || 1) } },
+      uniforms: {
+        uPixelRatio: { value: Math.min(2, window.devicePixelRatio || 1) },
+        uAtlas: { value: ART.get('particles') || placeholderTexture() },
+        uAtlasOn: { value: ART.get('particles') ? 1 : 0 },
+      },
       vertexShader: VERT,
       fragmentShader: FRAG,
       transparent: true,
@@ -80,7 +104,8 @@ export class Particles {
 
   /**
    * 发射一簇粒子
-   * @param {object} o { x,y,z, count, speed, up, spread, color:[r,g,b], intensity, size, life, gravity, drag }
+   * @param {object} o { x,y,z, count, speed, up, spread, color:[r,g,b], intensity, size, life, gravity, drag,
+   *                    sprite: 0 光球（默认）/ 1 星芒 / 2 水花 / 3 绒羽 }
    */
   burst(o) {
     const n = o.count ?? 20;
@@ -89,6 +114,7 @@ export class Particles {
     const spread = o.spread ?? 1;
     const c = o.color ?? [1, 0.8, 0.4];
     const inten = o.intensity ?? 2.5;
+    const spr = o.sprite ?? 0;
     for (let k = 0; k < n; k++) {
       const i = this.head;
       this.head = (this.head + 1) % this.cap;
@@ -108,6 +134,7 @@ export class Particles {
       this.col[i * 4 + 3] = inten;
       this.size[i] = (o.size ?? 0.18) * (0.6 + Math.random() * 0.8);
       this.life[i] = 1;
+      this.sprite[i] = spr;
       this.decay[i] = 1 / ((o.life ?? 0.9) * (0.7 + Math.random() * 0.6));
       this.grav[i] = o.gravity ?? 9;
       this.drag[i] = o.drag ?? 0.6;
@@ -133,7 +160,7 @@ export class Particles {
     if (any || this._dirty) {
       this.aPos.needsUpdate = true;
       this.aLife.needsUpdate = true;
-      if (this._dirty) { this.aCol.needsUpdate = true; this.aSize.needsUpdate = true; }
+      if (this._dirty) { this.aCol.needsUpdate = true; this.aSize.needsUpdate = true; this.aSprite.needsUpdate = true; }
       this._dirty = false;
     }
   }

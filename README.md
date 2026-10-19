@@ -5,9 +5,11 @@
 一只鹈鹕骑着一辆通勤自行车环游海岛 —— 纯 WebGL / three.js 实时 3D 场景，
 现在也是一个小游戏：捕鱼、计时赛、特技连击、拍照任务。
 
-**游戏运行时没有任何外部模型、贴图或音频文件**：地形、海面、天空、云、鸟群、
-自行车、鹈鹕（含 3000 片羽毛）、灯塔、鸟巢、跳台、海鸥、萤火虫、所有音效与界面图标，
-全部由代码在运行时生成。（`promo/` 里的宣传图只用于商店页 / README，游戏不会加载它们。）
+**模型、动画与音频仍然全部由代码生成**：地形、海面、天空、云、鸟群、自行车、
+鹈鹕（含 3000 片羽毛）、灯塔、鸟巢、跳台、海鸥、萤火虫、所有音效与界面图标，都在运行时构建。
+从 v2 美术更新起，表面细节改用一小组**由 gpt-image-2.5 生成的贴图**（沙 / 湿沙 / 草甸 / 岩石、
+海面细浪与白沫、木纹、灯塔墙面、羽毛、粒子精灵）以及界面插画（模式卡、拍照任务徽章、加载页主视觉），
+共约 5.5 MB —— 详见下文「美术资源」。贴图只是增强：任何一张加载失败都会自动回退到原来的程序化外观。
 
 在线试玩：<https://cpulxb.github.io/pelican-bike-3d/>
 
@@ -72,6 +74,7 @@ js/audio.js           Web Audio 程序化音效（风声、链条、车铃、海
 js/util/noise.js      哈希 / Perlin / fbm，以及世界地形高度场
 js/util/geometry.js   曲线扫掠管体、羽片、两骨 IK 等几何原语
 js/gfx/shaders.js     全部自研 GLSL（天空、地形、海面、草、云、鸟、羽毛）
+js/gfx/textures.js    美术贴图加载器（进度接入加载界面、失败回退、三平面细节材质）
 js/gfx/feather.js     羽毛蒙皮层（实例化 mat4）
 js/gfx/effects.js     后处理链（辉光 → 速度模糊 → 分级 → ACES 输出）
 js/objects/bike.js    自行车的程序化建模与传动
@@ -91,7 +94,10 @@ js/game/events.js     海鸥抢鱼 / 车头灯 / 萤火虫 / 阵风
 js/game/particles.js  通用 GPU 粒子池（一个 draw call，零分配）
 js/game/mesh.js       顶点色合并、发光材质、低模鱼等小工具
 js/game/storage.js    localStorage 安全封装（最高分、设置、幽灵、相册）
-promo/                宣传图（Steam 胶囊图 / 主视觉），不被游戏加载
+assets/textures/      地形 / 海面 / 道具 / 羽毛 / 粒子贴图（gpt-image-2.5 生成，webp）
+assets/ui/            模式卡插画、拍照任务徽章、喉囊图标、加载页主视觉
+tools/art/            生成与后处理脚本（提示词、无缝化、法线推导）
+promo/                宣传图（Steam 胶囊图 / 主视觉）与截图；主视觉的 webp 副本用作加载页背景
 ```
 
 ## 几个实现上的关键点
@@ -128,6 +134,52 @@ promo/                宣传图（Steam 胶囊图 / 主视觉），不被游戏�
   其余只有 `groundAt` / `handleEvents` / `onTakeoff` / `onLand` / `onPhoto` 几个钩子。观光模式不启用任何玩法模块。
 - **不要切换光源的 visible / castShadow**：three 会因为灯的数量变化重编译所有内置材质的着色器。
   太阳落山改为淡出 `shadow.intensity`，车头灯白天只是强度为 0。
+
+## 美术资源（gpt-image-2.5）
+
+原来的规则是「零外部贴图」。这一版放开了这条规则，用图像模型 **gpt-image-2.5** 生成了一小组贴图，
+让近景更细腻；几何、动画、光照与配色仍然是程序化的。
+
+| 文件 | 尺寸 | 用在哪里 |
+|---|---|---|
+| `assets/textures/sand_albedo` / `sand_normal` | 1024² | 地形干沙：细节色 + 法线（风纹、颗粒、贝壳碎屑） |
+| `assets/textures/wetsand_albedo` / `wetsand_normal` | 1024² | 潮间带湿沙，配一层更锐的水膜高光 |
+| `assets/textures/grass_albedo` / `grass_normal` | 1024² | 草甸斑块；B 通道的高度让草地与沙地的交界沿草丛走 |
+| `assets/textures/rock_albedo` / `rock_normal` | 1024² | 陡坡岩层（三平面投影）+ 散布的岩石实例 |
+| `assets/textures/sea_normal_foam` | 1024² | 海面两层漂移细浪法线（RG）+ 岸边蕾丝白沫（B），地形潮线的白沫也用它 |
+| `assets/textures/wood_detail` / `plaster_detail` | 512² | 跳台 / 鸟巢的木纹、灯塔的石灰墙面（物体空间三平面投影） |
+| `assets/textures/feather` | 128×512 | 3000 片实例化羽毛：真实的羽轴、羽枝与轮廓（alpha 剪裁） |
+| `assets/textures/particles` | 256² | 粒子图集：光球 / 星芒 / 水花 / 绒羽（跃鱼水花、捕获与送达、摔车） |
+| `assets/ui/mode-*.webp` | 768×512 | 模式选择卡的插画 |
+| `assets/ui/badge-*.webp` | 192² | 9 个拍照任务徽章（任务列表、局内任务卡、完成横幅） |
+| `assets/ui/fish.webp`、`key-art.webp` | — | 喉囊图标；加载页背景（`promo/` 主视觉的压缩副本） |
+
+前后对比（左：纯程序化；右：加贴图后，同一机位、同一时刻，软件渲染截取）：
+
+![岸边与跃鱼](promo/screenshots/art-compare-04-shore-fish.jpg)
+![草甸](promo/screenshots/art-compare-05-meadow.jpg)
+![鹈鹕近景](promo/screenshots/art-compare-06-pelican-closeup.jpg)
+![灯塔与沙纹](promo/screenshots/art-compare-07-lighthouse.jpg)
+
+界面：[加载页](promo/screenshots/art-ui-00-loading.jpg) · [模式卡](promo/screenshots/art-ui-02-modes.jpg) ·
+[任务徽章](promo/screenshots/art-ui-03-missions.jpg) · [任务完成横幅](promo/screenshots/art-ui-09-mission-badge.jpg) ·
+[跳台木纹](promo/screenshots/art-compare-08-ramp.jpg)
+
+几个做法：
+
+- **贴图是增强，不是依赖**。`js/gfx/textures.js` 在构建世界之前并行加载（进度条接在加载界面上），
+  20 秒超时；缺哪张，对应的着色器分支就留在程序化实现，不报错。界面插画走 CSS 背景，缺图只是少一张画。
+- **细节色是归一化的**：离线把每张图在线性空间里除以自身平均色，着色器用 `调色板 × 贴图 × gain`。
+  于是贴图只带来颗粒与纹路，整体色调仍由黄昏调色板决定；远处 mipmap 平均后正好回到调色板本色，
+  与天空、雾、昼夜循环的色彩关系完全不变。`gain` 写在 `ART_GAIN` 里，改贴图时要同步。
+- **反平铺**：沙与草在「原尺度」和「旋转 37° × 0.43 倍」两套坐标各采一次，用极低频噪声混合；
+  岩石用三平面投影，陡坡不会被拉成长条。分支内采样用 `textureGrad`（导数在分支外求）。
+- **无缝与法线**：原图要求模型输出 "seamless tileable"，再用半周期错位 + 噪声羽化修掉残余接缝；
+  法线由亮度高度场环绕差分得到（B 通道存高度，用于层间的高度混合）。脚本在 `tools/art/`。
+- **色彩空间**：细节色 `SRGBColorSpace`，法线 / 白沫 / 粒子是数据贴图 `NoColorSpace`；全部开 mipmap 与各向异性过滤。
+- **画质档**：低档不加载法线贴图，地形只采细节色；运行中自适应降到低档时，地形着色器也随之跳过法线采样。
+- **性能**：贴图分支替换掉了几组 fbm / ridged 噪声（沙地风纹、草色、岩色、海面细浪、白沫），
+  片元着色器的计算量与原来大致持平；每帧没有任何新分配。
 
 ## 宣传素材
 

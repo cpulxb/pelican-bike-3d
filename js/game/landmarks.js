@@ -61,7 +61,7 @@ export class Landmarks {
     parts.push([new THREE.BoxGeometry(0.9, 1.7, 0.3), 0x3d2a1e, trs(0, 2.4, 2.0, -0.06)]);
 
     const geo = mergeColored(parts);
-    const mesh = new THREE.Mesh(geo, propMaterial());
+    const mesh = new THREE.Mesh(geo, propMaterial('plaster'));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     g.add(mesh);
@@ -128,7 +128,7 @@ export class Landmarks {
       ]);
     }
     const geo = mergeColored(parts);
-    const mesh = new THREE.Mesh(geo, propMaterial());
+    const mesh = new THREE.Mesh(geo, propMaterial('wood'));
     mesh.castShadow = true;
     g.add(mesh);
     this.disposables.push(geo);

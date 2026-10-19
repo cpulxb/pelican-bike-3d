@@ -1,8 +1,9 @@
 /**
  * shaders.js —— 全部自研 GLSL 着色器
  *
- * 这个场景刻意不使用任何外部贴图：天空、海面、沙地、草地、云、鸟群、羽毛，
- * 每一处着色都由下面的代码在 GPU 上算出来。
+ * 天空、海面、沙地、草地、云、鸟群、羽毛的着色都由下面的代码在 GPU 上算出来。
+ * 地形 / 海面 / 羽毛另有一层可选的「细节贴图」（gpt-image-2.5 生成，见 js/gfx/textures.js）：
+ * 贴图只提供颗粒、纹路与法线，色调仍由这里的调色板决定；贴图缺失时自动回退到纯程序化分支。
  *
  * 组织方式：
  *   GLSL_COMMON  —— 噪声 / 雾 / 色调映射等公共函数，被其它着色器拼接引用
@@ -289,6 +290,20 @@ export const TERRAIN_FRAG = /* glsl */`
   uniform vec3  uHeadDir;
   uniform float uHeadI;
 
+  // ---- 美术贴图（见 js/gfx/textures.js）----
+  // uArt：0 = 纯程序化（贴图没加载到）；1 = 只有细节色；2 = 细节色 + 法线
+  uniform float uArt;
+  uniform vec4  uArtGain;        // 归一化细节贴图的还原倍数：沙 / 湿沙 / 草 / 岩
+  uniform sampler2D uSandA;
+  uniform sampler2D uSandN;
+  uniform sampler2D uWetA;
+  uniform sampler2D uWetN;
+  uniform sampler2D uGrassA;
+  uniform sampler2D uGrassN;
+  uniform sampler2D uRockA;
+  uniform sampler2D uRockN;
+  uniform sampler2D uSeaNF;      // rg = 细浪法线，b = 白沫
+
   varying vec3 vWorldPos;
   varying vec3 vNormalW;
   varying float vHeight;
@@ -314,6 +329,30 @@ export const TERRAIN_FRAG = /* glsl */`
     return m;
   }
 
+  /*
+   * 反平铺：同一张贴图在「原尺度」与「旋转 37° + 缩小到 0.43 倍」两套坐标上各采一次，
+   * 用一层很低频的噪声在两者之间混合。两套坐标的周期互质，
+   * 于是在几十米的范围内看不出重复的格子。
+   * 用 textureGrad 而不是 texture：调用点在非一致的分支里，隐式导数不可靠。
+   */
+  const mat2 ROT = mat2(0.8, -0.6, 0.6, 0.8);
+  vec4 dualA(sampler2D t, vec2 uv, vec2 gx, vec2 gy, float m) {
+    vec4 a = textureGrad(t, uv, gx, gy);
+    if (m < 0.01) return a;
+    vec2 uv2 = ROT * uv * 0.43 + vec2(0.37, 0.71);
+    vec4 b = textureGrad(t, uv2, ROT * gx * 0.43, ROT * gy * 0.43);
+    return mix(a, b, m);
+  }
+  // 法线版：第二套坐标转过一个角度，切线空间的梯度也要转回世界方向
+  vec2 dualN(sampler2D t, vec2 uv, vec2 gx, vec2 gy, float m) {
+    vec2 a = textureGrad(t, uv, gx, gy).rg * 2.0 - 1.0;
+    if (m < 0.01) return a;
+    vec2 uv2 = ROT * uv * 0.43 + vec2(0.37, 0.71);
+    vec2 b = textureGrad(t, uv2, ROT * gx * 0.43, ROT * gy * 0.43).rg * 2.0 - 1.0;
+    b = b * ROT;                     // = transpose(ROT) * b
+    return mix(a, b, m);
+  }
+
   void main() {
     vec3 N = normalize(vNormalW);
     vec3 V = normalize(cameraPosition - vWorldPos);
@@ -321,9 +360,20 @@ export const TERRAIN_FRAG = /* glsl */`
 
     float slope = 1.0 - clamp(N.y, 0.0, 1.0);
     float h = vHeight;
+    bool art = uArt > 0.5;
+    bool artN = uArt > 1.5;
+
+    // 贴图坐标与导数（在任何分支之前求，保证 mip 选择正确）
+    vec2 uvS = p / 4.2;                 // 沙 / 湿沙：一块 4.2m
+    vec2 uvG = p / 2.6;                 // 草：一块 2.6m
+    vec2 gxS = dFdx(uvS), gyS = dFdy(uvS);
+    vec2 gxG = dFdx(uvG), gyG = dFdy(uvG);
+    vec3 rp = vWorldPos * uDetailScale / 5.5;   // 岩石三平面投影：一块 5.5m
+    vec3 rdx = dFdx(rp), rdy = dFdy(rp);
+    float mixV = art ? smoothstep(-0.35, 0.35, vnoise(p * 0.031 + vec2(3.1, 7.7))) : 0.0;
+    vec3 Np = vec3(0.0);                // 法线扰动（世界空间）的累加
 
     // ---------- 1. 基础色：从水下泥沙到干沙 ----------
-    float d = sandDetail(p);
     vec3 wetSand  = vec3(0.36, 0.30, 0.235);
     vec3 drySand  = vec3(0.74, 0.62, 0.44);
     vec3 duneSand = vec3(0.83, 0.71, 0.52);
@@ -333,7 +383,27 @@ export const TERRAIN_FRAG = /* glsl */`
     vec3 albedo = mix(wetSand, drySand, sandMix);
     albedo = mix(albedo, duneSand, smoothstep(2.2, 5.0, h));
     albedo = mix(albedo, underSand, smoothstep(uWaterLevel - 0.1, uWaterLevel - 1.8, h));
-    albedo *= 0.86 + d * 0.30;
+    float wetness = 1.0 - smoothstep(uWaterLevel + 0.15, uWaterLevel + 1.25, h);
+    if (art) {
+      // 细节色贴图只负责颗粒 / 风纹 / 贝壳碎屑，色调仍然由上面的调色板决定
+      vec3 sd = dualA(uSandA, uvS, gxS, gyS, mixV).rgb * uArtGain.x;
+      if (artN) {
+        vec2 sn = dualN(uSandN, uvS, gxS, gyS, mixV);
+        Np += vec3(sn.x, 0.0, sn.y) * 0.55 * (1.0 - wetness);
+      }
+      if (wetness > 0.01) {
+        vec3 wd = textureGrad(uWetA, uvS * 1.15, gxS * 1.15, gyS * 1.15).rgb * uArtGain.y;
+        sd = mix(sd, wd, wetness);
+        if (artN) {
+          vec2 wn = textureGrad(uWetN, uvS * 1.15, gxS * 1.15, gyS * 1.15).rg * 2.0 - 1.0;
+          Np += vec3(wn.x, 0.0, wn.y) * 0.6 * wetness;
+        }
+      }
+      albedo *= mix(vec3(1.0), sd, 0.72);
+    } else {
+      float d = sandDetail(p);
+      albedo *= 0.86 + d * 0.30;
+    }
     // 大尺度的色相扰动：让沙丘有冷暖交替，而不是一整片均匀的黄。
     // 这是「沙漠看起来假」最常见的原因 —— 单一色相铺满整个视野。
     float hueShift = fbm(p * 0.045 + vec2(-7.0, 13.0), 3);
@@ -342,13 +412,49 @@ export const TERRAIN_FRAG = /* glsl */`
 
     // ---------- 2. 岩石：陡坡 + 脊状噪声 ----------
     float rockMask = smoothstep(0.30, 0.58, slope + (ridged(p * 1.6, 4) - 0.5) * 0.35);
-    vec3 rock = mix(vec3(0.30, 0.28, 0.26), vec3(0.46, 0.42, 0.37), ridged(p * 3.0, 3));
+    vec3 rock;
+    if (art && rockMask > 0.01) {
+      // 三平面投影：陡坡上不会被拉成长条
+      vec3 bw = pow(abs(N), vec3(4.0));
+      bw /= (bw.x + bw.y + bw.z);
+      vec4 rx = textureGrad(uRockA, rp.zy, rdx.zy, rdy.zy);
+      vec4 ry = textureGrad(uRockA, rp.xz, rdx.xz, rdy.xz);
+      vec4 rz = textureGrad(uRockA, rp.xy, rdx.xy, rdy.xy);
+      vec3 rd = (rx.rgb * bw.x + ry.rgb * bw.y + rz.rgb * bw.z) * uArtGain.w;
+      rock = vec3(0.38, 0.35, 0.31) * rd;
+      if (artN) {
+        vec3 nx = textureGrad(uRockN, rp.zy, rdx.zy, rdy.zy).rgb;
+        vec3 ny = textureGrad(uRockN, rp.xz, rdx.xz, rdy.xz).rgb;
+        vec3 nz = textureGrad(uRockN, rp.xy, rdx.xy, rdy.xy).rgb;
+        vec3 rpN = vec3(0.0, nx.y * 2.0 - 1.0, nx.x * 2.0 - 1.0) * bw.x
+                 + vec3(ny.x * 2.0 - 1.0, 0.0, ny.y * 2.0 - 1.0) * bw.y
+                 + vec3(nz.x * 2.0 - 1.0, nz.y * 2.0 - 1.0, 0.0) * bw.z;
+        float rh = nx.b * bw.x + ny.b * bw.y + nz.b * bw.z;
+        // 高度混合：岩石的凸起先「冒」出沙面，交界线沿着岩缝走，而不是一圈模糊的过渡
+        rockMask = clamp(rockMask + (rh - 0.5) * 1.6 * rockMask * (1.0 - rockMask) * 2.0, 0.0, 1.0);
+        Np = mix(Np, rpN * 1.1, rockMask);
+      }
+    } else {
+      rock = mix(vec3(0.30, 0.28, 0.26), vec3(0.46, 0.42, 0.37), ridged(p * 3.0, 3));
+    }
     albedo = mix(albedo, rock, rockMask * 0.92);
 
     // ---------- 3. 草甸 ----------
     float grass = meadowMask(p, slope, h) * (1.0 - rockMask);
-    vec3 grassCol = mix(vec3(0.26, 0.31, 0.14), vec3(0.40, 0.44, 0.19),
-                        fbm(p * 2.4, 3) * 0.5 + 0.5);
+    vec3 grassCol;
+    if (art && grass > 0.01) {
+      vec3 gd = dualA(uGrassA, uvG, gxG, gyG, mixV).rgb * uArtGain.z;
+      grassCol = vec3(0.33, 0.375, 0.165) * mix(vec3(1.0), gd, 0.9);
+      if (artN) {
+        vec4 gn = textureGrad(uGrassN, uvG, gxG, gyG);
+        grass = clamp(grass + (gn.b - 0.5) * 1.4 * grass * (1.0 - grass) * 2.0, 0.0, 1.0);
+        vec2 gnn = gn.rg * 2.0 - 1.0;
+        Np = mix(Np, vec3(gnn.x, 0.0, gnn.y) * 0.7, grass);
+      }
+    } else {
+      grassCol = mix(vec3(0.26, 0.31, 0.14), vec3(0.40, 0.44, 0.19),
+                     fbm(p * 2.4, 3) * 0.5 + 0.5);
+    }
     albedo = mix(albedo, grassCol, grass * 0.88);
 
     // ---------- 4. 潮线：水边一圈深色湿痕 + 泡沫 ----------
@@ -356,20 +462,30 @@ export const TERRAIN_FRAG = /* glsl */`
     float tideLine = shoreline * (0.6 + 0.4 * sin(uTime * 0.7 + fbm(p * 0.5, 2) * 5.0));
     albedo = mix(albedo, albedo * 0.62, tideLine * 0.55);
 
-    float foam = shoreline * (1.0 - smoothstep(0.0, 0.42, abs(h - uWaterLevel) - 0.06))
-               * (fbm(p * 3.2 + vec2(uTime * 0.06, 0.0), 3) * 0.5 + 0.5);
+    float foamBand = shoreline * (1.0 - smoothstep(0.0, 0.42, abs(h - uWaterLevel) - 0.06));
+    float foamN;
+    if (art && foamBand > 0.01) {
+      foamN = texture2D(uSeaNF, vWorldPos.xz / 5.0 + vec2(uTime * 0.012, 0.0)).b;
+      foamN = smoothstep(0.15, 0.85, foamN);
+    } else {
+      foamN = fbm(p * 3.2 + vec2(uTime * 0.06, 0.0), 3) * 0.5 + 0.5;
+    }
+    float foam = foamBand * foamN;
     albedo = mix(albedo, vec3(0.86, 0.88, 0.86), clamp(foam * 1.4, 0.0, 0.8));
 
+    // 贴图法线：把累加的扰动加到几何法线上（沙面的风纹、岩缝、草叶的起伏）
+    vec3 Nd = artN ? normalize(N + Np) : N;
+
     // ---------- 5. 光照：半兰伯特 + 天光 + 太阳 ----
-    float ndl = dot(N, uSunDir);
+    float ndl = dot(Nd, uSunDir);
     float wrap = clamp((ndl + 0.35) / 1.35, 0.0, 1.0);      // wrap lighting，沙面更柔和
     vec3 sun = uSunColor * wrap * 1.15;
 
     // 半球天光：朝上的部分接天顶色，朝下接地面反弹色。
     // 天光的颜色同样带方向性 —— 面朝太阳的坡面接收到的是暖光，
     // 背光坡面接收到的是冷调天光，于是起伏的沙丘自然分出冷暖。
-    float hemi = N.y * 0.5 + 0.5;
-    vec3 skyAbove = skyColor(vec3(N.x, 0.65, N.z), uSunDir, uSkyTop, uSkyHorizon);
+    float hemi = Nd.y * 0.5 + 0.5;
+    vec3 skyAbove = skyColor(vec3(Nd.x, 0.65, Nd.z), uSunDir, uSkyTop, uSkyHorizon);
     vec3 ambient = mix(uNadir * 0.55, skyAbove, hemi) * 0.55;
 
     // 沙地的次表面感：迎光低角度时略微透亮
@@ -378,9 +494,10 @@ export const TERRAIN_FRAG = /* glsl */`
 
     vec3 color = albedo * (sun + ambient) + albedo * scatter;
 
-    // 细颗粒高光（干燥沙面）
+    // 细颗粒高光（干燥沙面）；湿沙更亮更锐（一层薄水膜）
     vec3 H = normalize(uSunDir + V);
-    float spec = pow(max(dot(N, H), 0.0), 42.0) * 0.16 * (1.0 - grass) * sandMix;
+    float spec = pow(max(dot(Nd, H), 0.0), 42.0) * 0.16 * (1.0 - grass) * sandMix;
+    if (art) spec += pow(max(dot(Nd, H), 0.0), 160.0) * 0.55 * wetness * (1.0 - rockMask);
     color += uSunColor * spec;
 
     // ---------- 5b. 车头灯：软边聚光 + 距离衰减 ----------
@@ -391,7 +508,7 @@ export const TERRAIN_FRAG = /* glsl */`
       float cone = smoothstep(0.86, 0.97, dot(-Lh, uHeadDir));
       // 近处压一压（d²/(d²+6)），否则车轮底下会被照成一块过曝的白斑
       float att = uHeadI * (dh * dh / (dh * dh + 6.0)) / (1.0 + dh * dh * 0.03);
-      color += albedo * vec3(1.0, 0.86, 0.62) * cone * att * max(dot(N, Lh), 0.0);
+      color += albedo * vec3(1.0, 0.86, 0.62) * cone * att * max(dot(Nd, Lh), 0.0);
     }
 
     // ---------- 6. 雾 + 输出 ----------
@@ -481,6 +598,8 @@ export const WATER_FRAG = /* glsl */`
   uniform sampler2D uHeightMap;     // CPU 烘焙的岛屿高度场（half float）
   uniform vec2      uMapOrigin;     // 贴图覆盖的世界范围（中心）
   uniform float     uMapSize;       // 贴图覆盖的世界边长
+  uniform float     uArt;           // 1 = 有细浪法线 / 白沫贴图
+  uniform sampler2D uSeaNF;         // rg = 细浪法线，b = 白沫
 
   varying vec3 vWorldPos;
   varying vec3 vNormal;
@@ -501,16 +620,26 @@ export const WATER_FRAG = /* glsl */`
 
     // ---------- 1. 细浪法线扰动（叠加两层不同尺度） ----------
     float t = uTime;
-    vec2 q1 = vUv * 0.85 + vec2(t * 0.09, t * 0.05);
-    vec2 q2 = vUv * 2.10 - vec2(t * 0.16, t * 0.11);
-    float n1 = fbm(q1, 3);
-    float n2 = fbm(q2, 2);
-    vec3 ripple = vec3(
-      (fbm(q1 + vec2(0.06, 0.0), 3) - n1) * 2.6 + (fbm(q2 + vec2(0.04, 0.0), 2) - n2) * 1.4,
-      0.0,
-      (fbm(q1 + vec2(0.0, 0.06), 3) - n1) * 2.6 + (fbm(q2 + vec2(0.0, 0.04), 2) - n2) * 1.4
-    );
-    N = normalize(N + ripple * 0.9);
+    vec3 ripple;
+    if (uArt > 0.5) {
+      // 两层朝不同方向漂移的细浪法线贴图（第二层转过 37°、尺度互质，避免看出平铺）
+      vec2 ra = texture2D(uSeaNF, vUv / 7.5 + vec2(t * 0.011, t * 0.007)).rg * 2.0 - 1.0;
+      vec2 uvb = mat2(0.8, -0.6, 0.6, 0.8) * vUv / 2.9 - vec2(t * 0.019, t * 0.023);
+      vec2 rb = texture2D(uSeaNF, uvb).rg * 2.0 - 1.0;
+      rb = rb * mat2(0.8, -0.6, 0.6, 0.8);
+      ripple = vec3(ra.x + rb.x * 0.75, 0.0, ra.y + rb.y * 0.75) * 0.6;
+    } else {
+      vec2 q1 = vUv * 0.85 + vec2(t * 0.09, t * 0.05);
+      vec2 q2 = vUv * 2.10 - vec2(t * 0.16, t * 0.11);
+      float n1 = fbm(q1, 3);
+      float n2 = fbm(q2, 2);
+      ripple = vec3(
+        (fbm(q1 + vec2(0.06, 0.0), 3) - n1) * 2.6 + (fbm(q2 + vec2(0.04, 0.0), 2) - n2) * 1.4,
+        0.0,
+        (fbm(q1 + vec2(0.0, 0.06), 3) - n1) * 2.6 + (fbm(q2 + vec2(0.0, 0.04), 2) - n2) * 1.4
+      ) * 0.9;
+    }
+    N = normalize(N + ripple);
 
     // ---------- 2. 水深：决定颜色与透明度 ----------
     float bed = sampleTerrainHeight(vWorldPos.xz);
@@ -564,7 +693,15 @@ export const WATER_FRAG = /* glsl */`
 
     // ---------- 6. 岸边白沫 ----------
     float shore = 1.0 - smoothstep(0.0, 0.85, depth);
-    float foamNoise = fbm(vUv * 1.6 + vec2(t * 0.22, t * 0.13), 4) * 0.5 + 0.5;
+    float foamNoise;
+    if (uArt > 0.5) {
+      // 白沫贴图的蕾丝状纹理：两层以不同速度漂移，叠出「在退去」的感觉
+      float fa = texture2D(uSeaNF, vUv / 4.0 + vec2(t * 0.045, t * 0.026)).b;
+      float fb = texture2D(uSeaNF, vUv / 9.0 - vec2(t * 0.018, t * 0.031)).b;
+      foamNoise = clamp(fa * 0.62 + fb * 0.5, 0.0, 1.0);
+    } else {
+      foamNoise = fbm(vUv * 1.6 + vec2(t * 0.22, t * 0.13), 4) * 0.5 + 0.5;
+    }
     float foam = shore * smoothstep(0.32, 0.86, foamNoise);
     foam += crestBreak * 0.85 * smoothstep(0.4, 0.9, foamNoise);
     foam = clamp(foam, 0.0, 1.0);
@@ -914,15 +1051,17 @@ export const FEATHER_VERT = /* glsl */`
   uniform float uSpeed;
 
   varying float vAlong;
+  varying float vAcross;
   varying vec3  vNormalW;
   varying vec3  vWorldPos;
   varying float vFlutterAmt;
   varying float vTint;
 
   void main() {
-    // uv.y：0=羽根，1=羽尖
+    // uv.y：0=羽根，1=羽尖；uv.x：0=左缘，1=右缘
     float along = uv.y;
     vAlong = along;
+    vAcross = uv.x;
     vTint = aTint;
 
     // 先在羽毛自身的局部空间里做风场变形
@@ -965,8 +1104,11 @@ export const FEATHER_FRAG = /* glsl */`
   uniform float uFogHeightFalloff;
   uniform float uExposure;
   uniform vec3  uBaseColor;
+  uniform float uFeatherArt;      // 1 = 有羽毛贴图（羽轴 + 羽枝 + 轮廓）
+  uniform sampler2D uFeatherTex;
 
   varying float vAlong;
+  varying float vAcross;
   varying vec3  vNormalW;
   varying vec3  vWorldPos;
   varying float vFlutterAmt;
@@ -988,6 +1130,15 @@ export const FEATHER_FRAG = /* glsl */`
 
     // 羽尖比羽根略亮，色相也略有差异（真实羽毛的渐变）
     vec3 albedo = uBaseColor * vTint * mix(0.70, 1.16, vAlong);
+    if (uFeatherArt > 0.5) {
+      // 贴图给出真实的羽片轮廓（alpha 剪裁）与羽轴、羽枝的明暗；
+      // 亮度除以贴图平均亮度（0.594），整只鸟的白度不因贴图而改变。
+      // 横向收窄到贴图中间 78%：贴图里羽片边缘是渐细的羽枝，直接铺满会让羽片显得稀疏
+      vec4 ft = texture2D(uFeatherTex, vec2(0.5 + (vAcross - 0.5) * 0.78, vAlong));
+      if (ft.a < 0.3) discard;
+      float l = dot(ft.rgb, vec3(0.2126, 0.7152, 0.0722)) / 0.594;
+      albedo *= mix(1.0, clamp(l, 0.55, 1.35), 0.85);
+    }
     vec3 color = albedo * (uSunColor * (ndl * 0.95 + 0.10) + ambient);
 
     // 边缘绒毛散射 + 被风吹起时的透光

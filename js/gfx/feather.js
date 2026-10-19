@@ -20,6 +20,7 @@
 
 import * as THREE from 'three';
 import * as S from './shaders.js';
+import { ART, placeholderTexture } from './textures.js';
 
 export class FeatherCoat {
   /**
@@ -110,6 +111,8 @@ export class FeatherCoat {
         uSpeed: { value: 0 },
         uBaseColor: { value: new THREE.Color(0xf6f0e4) },
         uExposure: u.uExposure,
+        uFeatherArt: { value: ART.get('feather') ? 1 : 0 },
+        uFeatherTex: { value: ART.get('feather') || placeholderTexture() },
       },
       vertexShader: S.FEATHER_VERT,
       fragmentShader: S.FEATHER_FRAG,
