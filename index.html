@@ -2,17 +2,20 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="description" content="一只鹈鹕骑着自行车环游海岛 —— 纯 WebGL / three.js 实时 3D 场景" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="description" content="一只鹈鹕骑着自行车环游海岛 —— 纯 WebGL / three.js 实时 3D 游戏：捕鱼、计时赛、特技与拍照" />
 <meta name="theme-color" content="#0b1a22" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
 <title>鹈鹕骑行 · Pelican on a Bicycle</title>
 
 <!-- 内联 SVG favicon：一只极简的鹈鹕剪影，省掉一次请求 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1f29'/%3E%3Cpath d='M7 20c0-4 3-7 7-7h6l5 3-2 2h-3v5a4 4 0 0 1-4 4h-1v-6H11a4 4 0 0 1-4-4z' fill='%23ffb347'/%3E%3Ccircle cx='20' cy='15' r='1.4' fill='%230b1f29'/%3E%3C/svg%3E" />
 
+<!-- 字体是唯一的外部资源，且只影响排版：加载失败会回落到系统字体，不阻塞游戏 -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="./css/style.css" />
 
 <script type="importmap">
@@ -25,7 +28,7 @@
 </script>
 </head>
 
-<body>
+<body class="is-menu">
   <!-- WebGL 画布容器 -->
   <div id="stage">
     <canvas id="scene"></canvas>
@@ -34,7 +37,7 @@
   <!-- 胶片颗粒 / 暗角（纯 CSS，与后期处理叠加） -->
   <div class="grain" aria-hidden="true"></div>
 
-  <!-- 顶部：标题卡 -->
+  <!-- ============ 观光模式 HUD ============ -->
   <header class="titlecard" id="titlecard">
     <div class="titlecard__rule"></div>
     <h1>鹈 鹕 骑 行</h1>
@@ -42,7 +45,6 @@
     <p class="titlecard__sub">环岛 · 黄昏 · 实时渲染</p>
   </header>
 
-  <!-- 右上：遥测面板 -->
   <aside class="panel panel--telemetry" id="telemetry" aria-live="off">
     <div class="panel__head"><span class="dot"></span>TELEMETRY</div>
     <div class="rows">
@@ -58,7 +60,6 @@
     <div class="spark"><canvas id="sparkline" width="220" height="34"></canvas></div>
   </aside>
 
-  <!-- 左下：操作提示 -->
   <div class="hints" id="hints">
     <div class="hints__head">操作</div>
     <ul>
@@ -67,29 +68,97 @@
       <li><kbd>Space</kbd><span>起跳</span></li>
       <li><kbd>1</kbd>–<kbd>4</kbd><span>切换镜头</span></li>
       <li><kbd>B</kbd><span>摇车铃</span></li>
-      <li><kbd>P</kbd><span>拍照存档</span></li>
+      <li><kbd>P</kbd><span>拍照</span></li>
+      <li><kbd>Esc</kbd><span>暂停 / 菜单</span></li>
       <li><kbd>H</kbd><span>隐藏界面</span></li>
-      <li><kbd>拖拽</kbd><span>轨道视角</span></li>
     </ul>
+  </div>
+
+  <!-- ============ 游戏模式 HUD ============ -->
+  <div class="ghud" id="ghud" aria-live="off">
+    <div class="ghud__score">
+      <div class="ghud__mode" id="g-mode">捕鱼 · 喉囊</div>
+      <div class="ghud__points"><b id="g-score">0</b><small>分</small></div>
+      <div class="ghud__best" id="g-best">最佳 —</div>
+    </div>
+
+    <div class="ghud__top">
+      <div class="ghud__timer" id="g-timer">3:00</div>
+      <div class="ghud__sub" id="g-sub"></div>
+      <div class="ghud__delta" id="g-delta"></div>
+      <div class="compass" id="g-compass">
+        <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 4 L31 30 L20 24 L9 30 Z" /></svg>
+        <span id="g-compass-label">—</span>
+      </div>
+    </div>
+
+    <div class="minimap" id="g-minimap-wrap"><canvas id="g-minimap" width="200" height="200"></canvas></div>
+
+    <div class="ghud__side">
+      <div class="pouch" id="g-pouch">
+        <div class="pouch__label">喉囊</div>
+        <div class="pouch__slots" id="g-pouch-slots"></div>
+      </div>
+      <div class="combo" id="g-combo">
+        <div class="combo__mult" id="g-combo-mult">×1</div>
+        <div class="combo__bar"><i id="g-combo-bar"></i></div>
+        <div class="combo__bank" id="g-combo-bank"></div>
+      </div>
+      <div class="wind" id="g-wind"><span class="wind__arrow" id="g-wind-arrow">➜</span><span>阵风</span></div>
+    </div>
+
+    <div class="missions" id="g-missions"></div>
+    <div class="banner" id="g-banner"><div class="banner__big" id="g-banner-big"></div><div class="banner__small" id="g-banner-small"></div></div>
+    <div class="trick" id="g-trick"></div>
+    <div class="pops" id="g-pops"></div>
+  </div>
+
+  <!-- ============ 触屏操控 ============ -->
+  <div class="touch" id="touch" aria-hidden="true">
+    <div class="stick" id="stick"><div class="stick__knob" id="stick-knob"></div></div>
+    <div class="tbtns">
+      <button class="tbtn tbtn--jump" data-touch="jump">跳</button>
+      <button class="tbtn" data-touch="bell">铃</button>
+      <button class="tbtn" data-touch="photo">拍</button>
+      <button class="tbtn" data-touch="brake">刹</button>
+    </div>
   </div>
 
   <!-- 右下：按钮组 -->
   <div class="controls" id="controls">
+    <button data-act="pause" title="暂停 / 菜单 (Esc)"><span class="ico">❚❚</span><em>菜单</em></button>
     <button data-act="camera" title="切换镜头 (1-4)"><span class="ico">◎</span><em>镜头</em></button>
-    <button data-act="auto" class="on" title="自动骑行 / 手动操控"><span class="ico">⟳</span><em>自动</em></button>
-    <button data-act="photo" title="截图 (P)"><span class="ico">▣</span><em>拍照</em></button>
-    <button data-act="audio" title="声音 (M)"><span class="ico">♪</span><em>声音</em></button>
-    <button data-act="gui" title="调参面板"><span class="ico">≡</span><em>参数</em></button>
+    <button data-act="auto" class="on only-sight" title="自动骑行 / 手动操控"><span class="ico">⟳</span><em>自动</em></button>
+    <button data-act="photo" title="拍照 (P)"><span class="ico">▣</span><em>拍照</em></button>
+    <button data-act="audio" class="on" title="声音 (M)"><span class="ico">♪</span><em>声音</em></button>
+    <button data-act="gui" class="only-sight" title="调参面板 (G)"><span class="ico">≡</span><em>参数</em></button>
   </div>
 
-  <!-- 中央：加载 / 提示 -->
+  <!-- ============ 菜单 / 暂停 / 结算 ============ -->
+  <div class="menu" id="menu" role="dialog" aria-modal="true">
+    <div class="menu__scrim"></div>
+    <div class="menu__body" id="menu-body"></div>
+  </div>
+
+  <!-- 中央：加载 -->
   <div class="loader" id="loader">
-    <div class="loader__bird">🦩</div>
+    <svg class="loader__bird" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="17" cy="47" r="9" fill="none" stroke="#f2e4cd" stroke-width="2.4" />
+      <circle cx="47" cy="47" r="9" fill="none" stroke="#f2e4cd" stroke-width="2.4" />
+      <path d="M17 47 L27 35 L41 35 L47 47 M27 35 L32 47 L41 35 M41 35 L39 28" fill="none" stroke="#6fd8d0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+      <ellipse cx="28" cy="26" rx="9.5" ry="7" fill="#f2e4cd" />
+      <path d="M33 22 C34 14 37 10 41 10 C44 10 45.5 12.5 44.5 15" stroke="#f2e4cd" stroke-width="4" fill="none" stroke-linecap="round" />
+      <path d="M43 12 L59 16.5 L44 16.5 Z" fill="#ffb347" />
+      <path d="M44 16.5 Q51 24 58 17" fill="#ff8c42" />
+      <circle cx="42" cy="12.2" r="1.1" fill="#0b1f29" />
+    </svg>
+    <div class="loader__title">鹈 鹕 骑 行</div>
     <div class="loader__bar"><i id="loader-bar"></i></div>
     <div class="loader__text" id="loader-text">正在编织羽毛…</div>
   </div>
 
-  <div class="toast" id="toast"></div>
+  <div class="toast" id="toast" role="status"></div>
+  <div class="flash" id="flash"></div>
 
   <noscript>
     <div class="noscript">此页面需要启用 JavaScript 与 WebGL2 才能运行。</div>
