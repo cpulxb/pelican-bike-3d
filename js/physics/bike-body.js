@@ -193,7 +193,7 @@ export class BikeBody {
       f.y += RHO_WATER * GRAVITY * 0.026 * sub;                // 等效排水体积 0.026 m³（鸟和轮胎是空心的）
       const ux = v.x - this._wv.x, uy = v.y - this._wv.y, uz = v.z - this._wv.z;
       const u = Math.hypot(ux, uy, uz);
-      let kd = 0.5 * RHO_WATER * 0.5 * Math.pow(sub, 1.5) * u * mode.waterDrag + 60 * sub;
+      let kd = 0.5 * RHO_WATER * 0.5 * Math.pow(sub, 1.5) * u * mode.waterDrag + 60 * sub * sub;  // 浅水（脚踝深）基本还能骑，越深越拖
       kd = Math.min(kd, M / h * 0.9);
       f.x -= kd * ux; f.y -= kd * uy; f.z -= kd * uz;
     }
@@ -217,7 +217,7 @@ export class BikeBody {
       const w0 = this.wheel[0], w1 = this.wheel[1];
       const mat = w0.load >= w1.load ? w0.mat : w1.mat;
       this.surface = mat;
-      const wetLoss = 1 - 0.55 * Math.min(1, Math.max(0, depth) / 0.6);
+      const wetLoss = 1 - 0.55 * Math.min(1, Math.max(0, depth - 0.15) / 0.6);
       const mu = mat.grip * mode.gripAssist * wetLoss;
       const Fmax = mu * N;
 
