@@ -42,7 +42,7 @@ export class BikeBody {
     this.sag0 = 0.05;              // 静止下沉量
     this.mountH = this.wheelR + this.travel;
     this.restLen = this.mountH + this.sag0;
-    this.mode = REALISM.real;
+    this.mode = REALISM.arcade;
 
     const bd = R.RigidBodyDesc.dynamic().setTranslation(0, 10, 0).lockRotations()
       .setCanSleep(false).setCcdEnabled(true).setLinearDamping(0).setAngularDamping(0);
@@ -102,7 +102,7 @@ export class BikeBody {
   }
 
   setMode(key) {
-    this.mode = REALISM[key] || REALISM.real;
+    this.mode = REALISM[key] || REALISM.arcade;
     this.body.setGravityScale(this.mode.gravityScale, true);
   }
 

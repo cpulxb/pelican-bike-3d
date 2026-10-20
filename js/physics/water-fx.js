@@ -47,8 +47,8 @@ export class WaterFX {
     const s = Math.max(0.1, Math.min(1.5, strength));
     this.stats.splashes++;
     this.particles?.burst({
-      x, y: y + 0.03, z, count: Math.round(8 + s * 26), speed: 1.2 + s * 2.4, up: 2 + s * 3.6, spread: 0.25 + s * 0.5,
-      color: [0.78, 0.92, 1.0], intensity: 1.1 + s * 0.6, size: 0.08 + s * 0.08, life: 0.55 + s * 0.35, sprite: 2, gravity: 9.8,
+      x, y: y + 0.03, z, count: Math.round(10 + s * 34), speed: 1.2 + s * 2.6, up: 2.2 + s * 4.2, spread: 0.25 + s * 0.55,
+      color: [0.82, 0.94, 1.0], intensity: 1.2 + s * 0.6, size: 0.12 + s * 0.14, life: 0.55 + s * 0.35, sprite: 2, gravity: 9.8,
     });
     this.addRing(x, z, s);
     if (s > 0.6) this.addRing(x, z, s * 0.6, 0.18);

@@ -340,7 +340,7 @@ export class PhysicsWorld {
     const fx = Math.sin(yaw), fz = Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
     for (let i = 0; i < Math.min(12, Math.round(N * 0.12)); i++) {
       const d = 9 + rnd() * 8, l = (rnd() - 0.5) * 5;
-      push(sx + fx * d + rx * l, sz + fz * d + rz * l, 0.07 + Math.pow(rnd(), 1.8) * 0.16);
+      push(sx + fx * d + rx * l, sz + fz * d + rz * l, 0.06 + Math.pow(rnd(), 1.8) * 0.08);   // 开局这片只放踢得动的小石子
     }
     // 2) 路边：每两个检查点之间撒一小撮
     const cps = L.checkpoints;

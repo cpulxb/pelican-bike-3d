@@ -44,6 +44,6 @@ export const records = {
 };
 
 /** 用户设置 */
-const DEFAULT_SETTINGS = { wind: true, volume: 0.8, timeOfDay: 'dusk', touch: 'auto', shake: true, physics: 'real' };
+const DEFAULT_SETTINGS = { wind: true, volume: 0.8, timeOfDay: 'dusk', touch: 'auto', shake: true, physics: 'arcade' };
 export const settings = Object.assign({}, DEFAULT_SETTINGS, load('settings', {}));
 export function saveSettings() { save('settings', settings); }

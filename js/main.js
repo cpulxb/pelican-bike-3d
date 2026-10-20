@@ -819,17 +819,19 @@ async function main() {
     noContact: 0,         // 连续无着地的时间
     airGrace: 0,          // 起跳后短暂忽略着地（悬挂还压着）
     pendingJump: false,
+    pitchArmed: true,     // 空中俯仰 / 转体需要离地后重新按键（见 preSub）
+    spinArmed: true,
     lastAirVy: 0,
     prevDepth: 0,
     thudCool: 0,
     safeTimer: 0,
     lastSafe: new THREE.Vector3(SPAWN.x, SPAWN.z, -0.6),   // (x, z, yaw)
-    mode: settings.physics === 'arcade' ? 'arcade' : 'real',
+    mode: settings.physics === 'real' ? 'real' : 'arcade',   // 默认街机（真实档跳台滞空 1.4 s，手感偏飘）
   };
   const _fwdV = { x: 0, z: 0 };
 
   function setPhysicsMode(m) {
-    rp.mode = m === 'arcade' ? 'arcade' : 'real';
+    rp.mode = m === 'real' ? 'real' : 'arcade';
     settings.physics = rp.mode;
     bikeBody?.setMode(rp.mode);
   }
@@ -855,7 +857,10 @@ async function main() {
     if (state.autoRide) {
       // 自动骑行：前方有岩石 / 灯塔就绕开（碰撞体是真的了，不绕会一直撞）
       steerInput = THREE.MathUtils.clamp(steerInput + phys.avoidSteer(bikeBody.pos.x, bikeBody.pos.y, bikeBody.pos.z, player.yaw) * 1.6, -1, 1);
-      if (phys.avoidNear < 7) throttle *= phys.avoidNear / 7;   // 正前方很近就收油
+      if (phys.avoidNear < 7) throttle *= Math.max(0.4, phys.avoidNear / 7);   // 正前方很近就收油（留一点，否则贴着树干永远起不了步）
+      // 卡住了（贴着障碍、陷在水里）：3 秒没动就换个方向重新出发
+      rp.autoStuck = Math.max(0, bikeBody.vFwd) < 0.6 && !(game && game.inputLocked && !state.autoRide) ? (rp.autoStuck || 0) + h : 0;
+      if (rp.autoStuck > 3) { rp.autoStuck = 0; rp.unstick = true; }
     }
     if (locked || crashed) steerInput = 0;
     if (game && !player.airborne) steerInput = THREE.MathUtils.clamp(steerInput + game.windSteer, -1, 1);
@@ -867,16 +872,22 @@ async function main() {
 
     if (!player.airborne) {
       // 同一套符号约定：steer > 0 = 右打把 = yaw 递减（见 README「转向的符号约定」）
-      player.yaw -= player.steer * PHYS.turnRate * speedFactor * h;
+      // 顶着树干 / 礁石停住时也能慢慢原地调头（相当于下车推着转），否则会永远卡在障碍前
+      const turnK = Math.max(speedFactor, !locked && !crashed && Math.abs(steerInput) > 0.1 ? 0.3 : 0);
+      player.yaw -= player.steer * PHYS.turnRate * turnK * h;
       const targetLean = player.steer * speedFactor * 0.42 + bikeBody.slip * Math.sign(player.steer) * 0.08;
       player.lean += (targetLean - player.lean) * Math.min(1, h * 3.6);
       player.airPitch *= Math.exp(-14 * h);
     } else {
+      // 空中动作要「重新按下」才生效：真实重力下沙丘顶 / 碾石头的小腾空能有半秒多，
+      // 一路按着 W 冲过去不该自动变成压头摔车（A/D 同理）。松开一次就「上膛」。
+      if (!st.pitch) rp.pitchArmed = true;
+      if (!st.steer) rp.spinArmed = true;
       if (!state.autoRide && !crashed) {
-        const dYaw = -steerInput * 6.6 * h;
+        const dYaw = rp.spinArmed ? -steerInput * 6.6 * h : 0;
         player.yaw += dYaw;
         player.spin += dYaw;
-        const dP = (st.pitch || 0) * 3.4 * h;
+        const dP = rp.pitchArmed ? (st.pitch || 0) * 3.4 * h : 0;
         player.airPitch += dP;
         player.flip += dP;
       }
@@ -918,6 +929,7 @@ async function main() {
     const locked = !state.autoRide && game && game.inputLocked;
 
     // ---- 离地 / 落地 ----
+    if (!player.airborne) { rp.pitchArmed = !input.state.pitch; rp.spinArmed = !input.state.steer; }
     if (rp.pendingJump) {
       rp.pendingJump = false;
       rp.airGrace = 0.12;
@@ -925,13 +937,15 @@ async function main() {
     } else if (!player.airborne) {
       rp.noContact = grounded ? 0 : rp.noContact + h;
       // 台唇 / 沙丘顶 / 碾过石头被顶起：悬空足够久且离地足够高才算「腾空」
-      if (rp.noContact > 0.05 && hag > 0.18) takeoff(v.y, false);
+      // 在水里漂起来（浮力 + 浪）不算腾空
+      if (rp.noContact > 0.05 && hag > 0.18 && bikeBody.depth < 0.3) takeoff(v.y, false);
     } else {
       player.airTime += h;
       player.maxAir = Math.max(player.maxAir, hag);
       rp.airGrace -= h;
       if (!grounded) rp.lastAirVy = v.y;
-      if (grounded && rp.airGrace <= 0 && player.airTime > 0.06) landRapier();
+      // 落地：车轮着地，或者直接掉进了深水
+      if ((grounded || bikeBody.depth > 0.6) && rp.airGrace <= 0 && player.airTime > 0.06) landRapier();
     }
 
     // ---- 碰撞冲量：小的颠一下，大的摔车 ----
@@ -955,6 +969,10 @@ async function main() {
     if (grounded && !player.airborne && bikeBody.depth < -0.1 && rp.safeTimer > 0.5) {
       rp.safeTimer = 0;
       rp.lastSafe.set(bikeBody.pos.x, bikeBody.pos.z, player.yaw);
+    }
+    if (rp.unstick) {
+      rp.unstick = false;
+      resetPlayer(rp.lastSafe.x, rp.lastSafe.y, player.yaw + Math.PI * 0.6);
     }
     if (bikeBody.deepTimer > 4 || bikeBody.depth > 1.9) {
       resetPlayer(rp.lastSafe.x, rp.lastSafe.y, rp.lastSafe.z);
@@ -1026,10 +1044,10 @@ async function main() {
   }
 
   /** 世界层（不随玩家暂停与否）：涟漪动画、调试线框 */
-  function updatePhysicsVisuals(dt) {
+  function updatePhysicsVisuals(dt, frozen = false) {
     if (!phys) return;
-    waterFx.update(dt, clock.elapsed);
-    physDebug.update(player.pos);
+    if (!frozen) waterFx.update(dt, clock.elapsed);
+    physDebug.update(player.pos);   // 暂停时也画：停下来看碰撞体正好
   }
 
   /* ================================================================ *
@@ -1119,7 +1137,7 @@ async function main() {
 
     // ---- 物理 ----
     if (!frozen) { if (phys) stepRapier(dt); else stepPhysics(dt); }
-    if (!frozen) updatePhysicsVisuals(dt);
+    updatePhysicsVisuals(dt, frozen);
     bellRing = Math.max(0, bellRing - dt * 2.2);
 
     // ---- 场景图 ----
@@ -1520,7 +1538,7 @@ async function main() {
         const f = gui.gui.addFolder('物理（Rapier）').close();
         const ctl = { 碰撞体线框: false, 真实度: rp.mode };
         f.add(ctl, '碰撞体线框').onChange((v) => physDebug.setEnabled(v));
-        f.add(ctl, '真实度', { 真实: 'real', 街机: 'arcade' }).onChange((v) => { setPhysicsMode(v); });
+        f.add(ctl, '真实度', { 街机: 'arcade', 真实: 'real' }).onChange((v) => { if (game) game.setSetting('physics', v); else setPhysicsMode(v); });   // 走 setSetting 才会存档
         f.add(phys.stats, 'awake').name('醒着的刚体').listen().disable();
         f.add(phys.stats, 'stepMs').name('物理耗时 ms').listen().disable();
       }

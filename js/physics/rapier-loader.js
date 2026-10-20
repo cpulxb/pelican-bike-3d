@@ -33,8 +33,11 @@ export async function loadRapier({ timeout = 10000 } = {}) {
     try {
       const mod = await withTimeout(import(/* @vite-ignore */ url), timeout, `加载 ${url}`);
       const R = mod.default || mod;
-      // 0.19 起 init() 推荐传一个对象；compat 包的 WASM 是内联的，不需要任何参数
-      await withTimeout(R.init({}), timeout, 'Rapier 初始化');
+      // compat 包的 WASM 是内联的，init() 不需要参数。它内部把 base64 解出的字节直接交给
+      // wasm-bindgen 的初始化函数，后者会打印一条「deprecated parameters」警告 —— 与我们的调用无关，滤掉。
+      const warn = console.warn;
+      console.warn = (...a) => { if (!String(a[0]).includes('deprecated parameters for the initialization')) warn.apply(console, a); };
+      try { await withTimeout(R.init(), timeout, 'Rapier 初始化'); } finally { console.warn = warn; }
       console.info(`[physics] Rapier ${R.version?.() || RAPIER_VERSION} 已就绪（${url === LOCAL ? '本地' : 'CDN'}）`);
       return R;
     } catch (err) {
