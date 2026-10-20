@@ -22,6 +22,7 @@ import {
 } from '../util/geometry.js';
 import * as S from '../gfx/shaders.js';
 import { ART, ART_GAIN, placeholderTexture, addTriplanarDetail } from '../gfx/textures.js';
+import { WAVES } from '../physics/waves.js';
 
 /* ------------------------------------------------------------------ *
  * 世界常量
@@ -389,10 +390,6 @@ export class Environment {
       uniforms: {
         uTime: this.u.uTime,
         uWaveScale: { value: waveScale },
-        uWaveDir0: { value: new THREE.Vector2(1.0, 0.22).normalize() },
-        uWaveDir1: { value: new THREE.Vector2(0.62, -0.78).normalize() },
-        uWaveDir2: { value: new THREE.Vector2(-0.28, 0.96).normalize() },
-        uWaveDir3: { value: new THREE.Vector2(0.88, 0.47).normalize() },
         uSunDir: this.u.uSunDir,
         uSunColor: this.u.uSunColor,
         uSkyTop: this.u.uSkyTop,
@@ -428,7 +425,7 @@ export class Environment {
     // 8 公里外是几百米的格子，一张网格同时满足近景细节与远景范围。
     // 既没有接缝，顶点数还从 9 万降到了 1.25 万。
     const geo = makeRadialOceanGeometry(WORLD.waterRings, WORLD.waterSectors, WORLD.waterExtent);
-    this.waterMat = mkMat(1.0);
+    this.waterMat = mkMat(WAVES.scale);
     const water = new THREE.Mesh(geo, this.waterMat);
     water.position.y = WATER_LEVEL;
     water.renderOrder = 1;
@@ -565,6 +562,8 @@ export class Environment {
     rockA.receiveShadow = rockB.receiveShadow = true;
 
     const m = new THREE.Matrix4();
+    // 物理用：每块岩石的几何 + 实例矩阵（physics/world.js 据此建凸包碰撞体）
+    this.scatter = { rockGeos: [rockGeoBase, rockGeo2], rocks: [], palms: [] };
     let ra = 0, rb = 0;
     for (let i = 0; i < WORLD.rockCount * 4 && (ra < rockA.count || rb < rockB.count); i++) {
       const a = rnd() * Math.PI * 2;
@@ -585,6 +584,7 @@ export class Environment {
         new THREE.Vector3(s * (0.8 + rnd() * 0.6), s * (0.55 + rnd() * 0.5), s * (0.8 + rnd() * 0.6))
       );
       target.setMatrixAt(idx, m);
+      this.scatter.rocks.push({ g: useB ? 1 : 0, m: m.toArray(), s });
       useB ? rb++ : ra++;
     }
     // 未用满的实例缩到 0，避免出现停在原点的石头
@@ -613,6 +613,7 @@ export class Environment {
         new THREE.Vector3(s, s * (0.85 + rnd() * 0.4), s)
       );
       palmInstances.setMatrixAt(pc++, m);
+      this.scatter.palms.push({ x, y: h, z, s });
     }
     for (let i = pc; i < palmInstances.count; i++) palmInstances.setMatrixAt(i, new THREE.Matrix4().makeScale(0, 0, 0));
     palmInstances.instanceMatrix.needsUpdate = true;

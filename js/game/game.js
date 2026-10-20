@@ -100,6 +100,21 @@ export class Game {
   /** 阵风造成的转向偏置 */
   get windSteer() { return this.gameplay && this.phase === 'playing' ? this.events.wind.steer : 0; }
 
+  /**
+   * 撞车（物理引擎检测到超过阈值的碰撞冲量）：与「落地摔车」同一套反馈 ——
+   * 提示、音效、绒羽、摔车统计，特技连击作废。观光模式只有绒羽和声音。
+   */
+  onCrash(reason = 'collide', what = '') {
+    this.audio?.crash?.();
+    const pp = this.ctx.player.pos;
+    this.particles.burst({ x: pp.x, y: pp.y + 1.0, z: pp.z, count: 18, speed: 1.6, up: 1.6, spread: 1.0, color: [1, 0.96, 0.88], intensity: 0.9, size: 0.16, life: 1.6, gravity: 0.8, drag: 1.6, sprite: 3 });
+    if (!this.gameplay || this.phase !== 'playing') return;
+    this.stats.crashes = (this.stats.crashes || 0) + 1;
+    const r = this.stunts.addTrick({ clean: false });
+    const label = { rock: '撞上礁石！', stone: '撞飞了石头！', lighthouse: '撞上灯塔！', nest: '撞上鸟巢！', palm: '撞上椰树！', ramp: '撞上跳台！', floater: '撞上浮木！' }[what] || '撞车！';
+    this.ui.trick(r?.lost ? `${label}连击 ${r.lost} 分作废` : label, 'bad', 1600);
+  }
+
   onTakeoff() {
     if (this.gameplay) this.audio?.whoosh?.(0.6);
   }
@@ -336,6 +351,7 @@ export class Game {
     if (k === 'volume') this.audio?.setVolume?.(v);
     if (k === 'wind') this.events.wind.enabled = v;
     if (k === 'touch') this.applyTouchSetting();
+    if (k === 'physics') this.ctx.setPhysicsMode?.(v);
   }
 
   applyTouchSetting() {

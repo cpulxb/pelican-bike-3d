@@ -70,10 +70,18 @@ export class GameUI {
       this.game.audio?.uiClick?.();
       this.game.menuAction(b.dataset.action, b.dataset.arg);
     });
-    this.body.addEventListener('input', (e) => {
+    // 设置项：同时听 input 与 change —— 下拉框 / 复选框在部分浏览器（以及脚本派发事件时）只有 change，
+    // 只听 input 会让「物理真实度」等选项既不生效也不存档。值没变就跳过，避免同一次操作写两遍。
+    const onSetting = (e) => {
       const t = e.target;
-      if (t.dataset.setting) this.game.setSetting(t.dataset.setting, t.type === 'checkbox' ? t.checked : t.type === 'range' ? Number(t.value) : t.value);
-    });
+      if (!t || !t.dataset || !t.dataset.setting) return;
+      const v = t.type === 'checkbox' ? t.checked : t.type === 'range' ? Number(t.value) : t.value;
+      if (t._lastSetting === v) return;
+      t._lastSetting = v;
+      this.game.setSetting(t.dataset.setting, v);
+    };
+    this.body.addEventListener('input', onSetting);
+    this.body.addEventListener('change', onSetting);
   }
 
   /* ================================================================ *
@@ -257,6 +265,8 @@ export class GameUI {
         <label class="field"><span>音量</span><input type="range" min="0" max="1" step="0.05" value="${settings.volume}" data-setting="volume" /></label>
         <label class="field"><span>阵风（会让车头轻微偏转）</span><input type="checkbox" ${settings.wind ? 'checked' : ''} data-setting="wind" /></label>
         <label class="field"><span>画面震动</span><input type="checkbox" ${settings.shake ? 'checked' : ''} data-setting="shake" /></label>
+        <label class="field"><span>物理真实度${this.game.ctx.physicsReady ? '' : '（物理引擎未加载）'}</span>
+          <select data-setting="physics" ${this.game.ctx.physicsReady ? '' : 'disabled'}><option value="arcade" ${sel('arcade', settings.physics)}>街机（默认：落地干脆、抓地更稳）</option><option value="real" ${sel('real', settings.physics)}>真实（重力 9.81、真实抓地与水阻）</option></select></label>
         <label class="field"><span>触屏按键</span>
           <select data-setting="touch"><option value="auto" ${sel('auto', settings.touch)}>自动</option><option value="on" ${sel('on', settings.touch)}>始终显示</option><option value="off" ${sel('off', settings.touch)}>隐藏</option></select></label>
         <label class="field"><span>画质</span>
@@ -273,11 +283,13 @@ export class GameUI {
       ['W / ↑', '加速（空中：压低车头）'], ['S / ↓', '刹车（空中：抬起车头）'], ['A D / ← →', '转向（空中：转体）'],
       ['Space', '起跳'], ['B', '摇车铃（驱赶海鸥 / 空中加分）'], ['P', '拍照（完成任务、存进相册）'],
       ['R', '回到起点 / 上一个检查点'], ['1–4', '切换镜头'], ['Esc', '暂停 / 返回'], ['M', '声音开关'], ['H', '隐藏界面'],
+      ['F3', '显示碰撞体线框（调试）'],
     ].map(([k, v]) => `<div class="help__row"><kbd>${k}</kbd><span>${v}</span></div>`).join('');
     return `
       <h2 class="menu__h">操作</h2>
       <div class="help">${rows}</div>
       <p class="menu__sub">手机：左侧摇杆转向与加速，右侧按键起跳 / 摇铃 / 拍照 / 刹车。拖动画面可以环视。</p>
+      <p class="menu__sub">物理：石头、浮木和你都有真实的质量与动量 —— 小石子会被踢飞，大礁石会让你摔车；水越深越难骑、越容易打滑。设置里可切「真实 / 街机」。</p>
       <div class="menu__actions"><button class="ghost-btn" data-action="back" data-autofocus>返回</button></div>`;
   }
 
